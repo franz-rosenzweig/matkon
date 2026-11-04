@@ -20,7 +20,9 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import accounts, config, kitchen, memory, vault
+import urllib.parse
+
+from . import accounts, config, kitchen, mail, memory, vault
 
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "app"
@@ -227,6 +229,8 @@ class Handler(BaseHTTPRequestHandler):
                 out["kitchen"] = {k: st.get(k) for k in KITCHEN_KEYS}
                 out["accounts"] = accounts.all_accounts()
                 out["initial_password"] = (config.STATE / "initial-password.txt").exists()
+                out["invites"] = accounts.invites()
+                out["mail"] = mail.available()
             return self._json(out)
         m = re.match(r"^/api/r/([\w-]+)$", path)
         if m:
@@ -266,6 +270,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"ok": True}, extra={"Set-Cookie": self.set_cookie(accounts.cookie(aid), accounts.YEAR)})
         if path == "/api/signout":
             return self._json({"ok": True}, extra={"Set-Cookie": self.set_cookie("", 0)})
+        if path in ("/api/join", "/api/forgot", "/api/reset"):
+            return self.codes(path, b)
         aid = self.account()
         if not aid:
             return self._error(401, "signed out")
@@ -277,13 +283,68 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"memory": memory.view(aid)})
             if path == "/api/settings":
                 op = b.get("op")
-                self.settings_op(aid, op, b)
+                out = self.settings_op(aid, op, b)
                 if op == "password":                      # the old cookie stopped working: a new one
                     return self._json({"ok": True}, extra={"Set-Cookie": self.set_cookie(accounts.cookie(aid), accounts.YEAR)})
-                return self._json({"ok": True})
+                return self._json(out or {"ok": True})
         except ValueError as e:
             return self._error(400, str(e))
         return self._error(404, "not here")
+
+    def codes(self, path, b):
+        """Joining with an invite, and setting a new password with an emailed code. Signed out."""
+        who = self.addr()
+        if accounts.held(who):
+            return self._error(429, "Too many tries. Wait a little and try again.")
+        email = str(b.get("email") or "").strip().lower()
+        try:
+            if path == "/api/forgot":
+                if accounts.by_email(email) and not accounts.recent_code("reset", email):
+                    code = accounts.make_code("reset", email)
+                    mail.send(email, "Your Matkon code", f"Your code for a new Matkon password is {code}.\n\n"
+                              "It works for 15 minutes. If you didn't ask for it, you can ignore this email.\n")
+                return self._json({"ok": True})             # the same answer whether or not there's an account
+            if path == "/api/join":
+                rec = accounts.use_code("invite", email, b.get("code"), keep=True)
+                accounts.add(b.get("username"), b.get("name") or rec.get("name"), b.get("password"), email=email)
+                accounts.drop_code("invite", email)
+                aid = str(b.get("username")).strip().lower()
+            else:
+                accounts.use_code("reset", email, b.get("code"), keep=True)
+                a = accounts.by_email(email)
+                if not a:
+                    raise ValueError("That code doesn't match.")
+                accounts.update(a["id"], password=b.get("password"))
+                accounts.drop_code("reset", email)
+                aid = a["id"]
+        except ValueError as e:
+            if "code" in str(e):
+                accounts.failed(who)
+            return self._error(400, str(e))
+        accounts.passed(who)
+        return self._json({"ok": True}, extra={"Set-Cookie": self.set_cookie(accounts.cookie(aid), accounts.YEAR)})
+
+    def invite(self, aid, email, name):
+        email = accounts.clean_email(email)
+        if accounts.by_email(email):
+            raise ValueError("That email already has an account.")
+        code = accounts.make_code("invite", email, name=(name or "").strip()[:60], by=aid)
+        me = (accounts.get(aid) or {}).get("name") or aid
+        url = (config.settings().get("app_url") or "").rstrip("/")
+        link = f"{url}/#/join/{urllib.parse.quote(email)}/{code}"
+        hello = f"Hi {name.strip()},\n\n" if (name or "").strip() else ""
+        sent = mail.send(email, f"{me} invited you to Matkon", f"""{hello}{me} invited you to Matkon, a kitchen of recipes from saved cooking reels.
+
+Your code is: {code}
+
+To join, open this link and pick a username and a password:
+{link}
+
+Or go to {url}, tap "I have a code", and enter this email address and the code.
+
+The code works for 7 days.
+""")
+        return {"ok": True, "sent": sent, **({} if sent else {"code": code, "link": link})}
 
     @staticmethod
     def _remember(code):
@@ -296,6 +357,30 @@ class Handler(BaseHTTPRequestHandler):
         admin = (accounts.get(aid) or {}).get("admin")
         if op == "name":
             accounts.update(aid, name=b.get("name"))
+        elif op == "email-code":
+            email = accounts.clean_email(b.get("email"))
+            other = accounts.by_email(email)
+            if other and other["id"] != aid:
+                raise ValueError("That email already has an account.")
+            if not mail.available():                      # no way to check it: just take it
+                accounts.set_email(aid, email)
+                return {"ok": True, "set": True}
+            if accounts.recent_code("email", email):
+                raise ValueError("A code just went there. Wait a minute.")
+            code = accounts.make_code("email", email, aid=aid)
+            if not mail.send(email, "Your Matkon code", f"Your code to use this email for Matkon is {code}.\n\nIt works for 15 minutes.\n"):
+                raise ValueError("The email didn't go out. Try again in a little while.")
+            return {"ok": True, "sent": True}
+        elif op == "email-set":
+            rec = accounts.use_code("email", b.get("email"), b.get("code"), keep=True)
+            if rec.get("aid") != aid:
+                raise ValueError("That code doesn't match.")
+            accounts.set_email(aid, b.get("email"))
+            accounts.drop_code("email", b.get("email"))
+        elif op == "invite" and admin:
+            return self.invite(aid, b.get("email"), b.get("name"))
+        elif op == "invite-cancel" and admin:
+            accounts.drop_code("invite", str(b.get("email") or ""))
         elif op == "password":
             if not accounts.check(aid, b.get("old")):
                 raise ValueError("The current password isn't right.")

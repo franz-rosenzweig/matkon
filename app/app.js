@@ -11,6 +11,7 @@
   let LIST = null, ME = null, SUGGEST = null;
   const FULL = {};
   let query = "";
+  let emailPending = null, lastInvite = null;
   let kind = "All";
 
   /* ---------- helpers ---------- */
@@ -219,16 +220,44 @@
   setInterval(() => { if (timer) tick(); }, 500);
 
   /* ---------- sign in ---------- */
-  function signInPage(error) {
+  const inp = (name, label, extra, value) => `<label>${esc(label)}<input name="${name}" ${extra || ""} value="${esc(value || "")}"></label>`;
+  const EMAIL_IN = 'type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required';
+  function signInPage(error, mode, pre) {
     ME = null; LIST = null;
-    app.innerHTML = `<div class="signin"><form class="signin-box" data-form="signin">
-      <div class="mark"><img src="icon.svg" alt=""><h1>Matkon</h1></div>
-      <label>Username<input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
-      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-      ${error ? `<p class="err" role="alert">${esc(error)}</p>` : ""}
-      <button class="btn btn-accent btn-big" type="submit">Sign in</button></form></div>`;
+    mode = mode || "signin"; pre = pre || {};
+    let form;
+    if (mode === "join") {
+      form = `<form class="signin-box" data-form="join"><div class="mark"><img src="icon.svg" alt=""><h1>Matkon</h1></div>
+        ${inp("email", "Email", EMAIL_IN, pre.email)}${inp("code", "Code", 'autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required', pre.code)}
+        ${inp("name", "Name", 'autocomplete="name"')}${inp("username", "Username", 'autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="2"')}
+        ${inp("password", "Password", 'type="password" autocomplete="new-password" required minlength="8"')}
+        ${error ? `<p class="err" role="alert">${esc(error)}</p>` : ""}
+        <button class="btn btn-accent btn-big" type="submit">Join</button>
+        <button class="link" type="button" data-action="mode" data-mode="signin">Sign in</button></form>`;
+    } else if (mode === "forgot") {
+      form = `<form class="signin-box" data-form="forgot"><div class="mark"><img src="icon.svg" alt=""><h1>Matkon</h1></div>
+        ${inp("email", "Email", EMAIL_IN, pre.email)}${error ? `<p class="err" role="alert">${esc(error)}</p>` : ""}
+        <button class="btn btn-accent btn-big" type="submit">Send a code</button>
+        <button class="link" type="button" data-action="mode" data-mode="signin">Sign in</button></form>`;
+    } else if (mode === "reset") {
+      form = `<form class="signin-box" data-form="reset-pw"><div class="mark"><img src="icon.svg" alt=""><h1>Matkon</h1></div>
+        ${inp("email", "Email", EMAIL_IN, pre.email)}${inp("code", "Code", 'inputmode="numeric" autocomplete="one-time-code" required')}
+        ${inp("password", "New password", 'type="password" autocomplete="new-password" required minlength="8"')}
+        ${error ? `<p class="err" role="alert">${esc(error)}</p>` : ""}
+        <button class="btn btn-accent btn-big" type="submit">Set password</button>
+        <button class="link" type="button" data-action="mode" data-mode="signin">Sign in</button></form>`;
+    } else {
+      form = `<form class="signin-box" data-form="signin"><div class="mark"><img src="icon.svg" alt=""><h1>Matkon</h1></div>
+        ${inp("username", "Username or email", 'autocomplete="username" autocapitalize="none" spellcheck="false" required')}
+        ${inp("password", "Password", 'type="password" autocomplete="current-password" required')}
+        ${error ? `<p class="err" role="alert">${esc(error)}</p>` : ""}
+        <button class="btn btn-accent btn-big" type="submit">Sign in</button>
+        <div class="links"><button class="link" type="button" data-action="mode" data-mode="join">I have a code</button>
+          <button class="link" type="button" data-action="mode" data-mode="forgot">Forgot password</button></div></form>`;
+    }
+    app.innerHTML = `<div class="signin">${form}</div>`;
     document.title = "Matkon";
-    const u = app.querySelector("input[name=username]"); u && u.focus();
+    const first = [...app.querySelectorAll("input")].find((i) => !i.value); (first || app.querySelector("input")) && (first || app.querySelector("input")).focus();
   }
 
   /* ---------- the top bar ---------- */
@@ -484,6 +513,8 @@
       <section class="sec set"><h2>Account</h2>
         <form data-form="name" class="row">${field("name", "Name", s.account.name)}<button class="btn" type="submit">Save</button></form>
         <p class="sub">Username · ${esc(s.account.id)}</p>
+        <form data-form="email" class="stack"><div class="row">${field("email", "Email", emailPending || s.account.email || "", "email", 'autocomplete="email"')}<button class="btn" type="submit">${emailPending ? "Send again" : "Save"}</button></div>
+          ${emailPending ? `<div class="row">${field("code", "Code from the email", "", "text", 'inputmode="numeric" autocomplete="one-time-code"')}<button class="btn btn-accent" type="button" data-action="email-set">Confirm</button></div>` : ""}</form>
         <form data-form="password" id="password" class="stack"><h3>Password</h3>${field("old", "Current password", "", "password", 'autocomplete="current-password"')}${field("new", "New password", "", "password", 'autocomplete="new-password" minlength="8"')}<button class="btn" type="submit">Change password</button></form>
         <button type="button" class="btn" data-action="signout">Sign out</button></section>
       <section class="sec set"><h2>Display</h2>
@@ -510,6 +541,10 @@
       <section class="sec set"><h2>Accounts</h2>
         <ul class="accts">${s.accounts.map((a) => `<li><span class="t">${esc(a.name)}</span><span class="sub">${esc(a.id)}${a.admin ? " · owner" : ""}</span>
           ${a.id === s.account.id ? "" : `<form data-form="reset" data-id="${esc(a.id)}" class="row mini-form"><input name="password" type="password" placeholder="New password" minlength="8" autocomplete="new-password"><button class="btn" type="submit">Set</button><button type="button" class="btn btn-icon" data-action="remove-account" data-id="${esc(a.id)}" aria-label="Remove">${I.trash}</button></form>`}</li>`).join("")}</ul>
+        <form data-form="invite" class="stack"><h3>Invite</h3>${field("email", "Email", "", "email")}${field("name", "Name", "")}<button class="btn btn-accent" type="submit">Send invite</button></form>
+        ${lastInvite ? `<div class="invite-code"><span class="sub">Code for ${esc(lastInvite.email)}</span><b>${esc(lastInvite.code)}</b><span class="cap">${esc(lastInvite.link)}</span></div>` : ""}
+        ${s.invites && s.invites.length ? `<ul class="accts">${s.invites.map((i) => `<li><span class="t">${esc(i.name || i.email)}</span><span class="sub">${esc(i.email)} · invited · until ${esc(day(i.expires))}</span>
+          <button type="button" class="btn btn-icon" data-action="invite-cancel" data-email="${esc(i.email)}" aria-label="Cancel">${I.x}</button></li>`).join("")}</ul>` : ""}
         <form data-form="account" class="stack"><h3>New account</h3>${field("name", "Name", "")}${field("id", "Username", "", "text", 'autocapitalize="none" spellcheck="false"')}${field("password", "Password", "", "password", 'minlength="8" autocomplete="new-password"')}<button class="btn" type="submit">Add account</button></form></section>` : ""}
       <p class="msg" id="msg" role="status"></p>
     </div>`;
@@ -541,6 +576,7 @@
     if (!same) { stopSpeaking(); if (!keepScroll) playing = null; }
     if (!same && page && lastRoute && !lastRoute.replace(/^#\/?/, "")) sessionStorage.setItem("mk.homeY", String(window.scrollY));
     let html, r = null;
+    if (page === "join") { signInPage("", "join", { email: code || "", code: n || "" }); lastRoute = key; return; }
     try {
       await loadAll();
       if (page === "r" || page === "cook") r = await loadOne(code);
@@ -629,6 +665,12 @@
     else if (act === "disconnect") { if (await setting("instagram-disconnect", {})) { ME = null; render(true); } }
     else if (act === "pick-col") { if (await setting("instagram-collection", { id: b.dataset.id, name: "Recipes" }, "Saved")) render(true); }
     else if (act === "sync") setting("sync", {}, "Checking");
+    else if (act === "mode") signInPage("", b.dataset.mode);
+    else if (act === "invite-cancel") { if (await setting("invite-cancel", { email: b.dataset.email }, "Invite cancelled")) render(true); }
+    else if (act === "email-set") {
+      const c = document.querySelector("form[data-form=email] input[name=code]");
+      if (await setting("email-set", { email: emailPending, code: c ? c.value : "" }, "Email saved")) { emailPending = null; ME = null; render(true); }
+    }
     else if (act === "to-password") { const p = document.getElementById("password"); p.scrollIntoView({ behavior: "smooth", block: "center" }); p.querySelector("input").focus({ preventScroll: true }); }
     else if (act === "remove-account") { if (confirm("Remove this account?") && await setting("account-remove", { id: b.dataset.id })) { ME = null; render(true); } }
   });
@@ -648,6 +690,36 @@
     if (kindOf === "signin") {
       try { await post("api/signin", { username: v.username, password: v.password }); ME = null; LIST = null; render(false); }
       catch (err) { signInPage(err.message); }
+      return;
+    }
+    if (kindOf === "join" || kindOf === "reset-pw") {
+      try {
+        await post(kindOf === "join" ? "api/join" : "api/reset", v);
+        ME = null; LIST = null;
+        if (route()[0] === "join") location.hash = "#/"; else render(false);
+      } catch (err) { signInPage(err.message, kindOf === "join" ? "join" : "reset", v); }
+      return;
+    }
+    if (kindOf === "forgot") {
+      try { await post("api/forgot", { email: v.email }); signInPage("", "reset", { email: v.email }); }
+      catch (err) { signInPage(err.message, "forgot", v); }
+      return;
+    }
+    if (kindOf === "email") {
+      try {
+        const d = await post("api/settings", { op: "email-code", email: v.email });
+        if (d.set) { emailPending = null; say("Email saved"); ME = null; } else { emailPending = v.email; say("Code sent"); }
+        render(true);
+      } catch (err) { if (err instanceof SignedOut) signInPage(); else say(err.message, true); }
+      return;
+    }
+    if (kindOf === "invite") {
+      try {
+        const d = await post("api/settings", { op: "invite", email: v.email, name: v.name });
+        lastInvite = d.sent ? null : { email: v.email, code: d.code, link: d.link };
+        say(d.sent ? "Invite sent to " + v.email : "The email didn't go out: pass on the code", !d.sent);
+        render(true);
+      } catch (err) { if (err instanceof SignedOut) signInPage(); else say(err.message, true); }
       return;
     }
     if (kindOf === "name") { if (await setting("name", { name: v.name }, "Saved")) ME = null; }

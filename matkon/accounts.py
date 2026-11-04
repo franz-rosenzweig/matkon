@@ -1,9 +1,13 @@
 """Accounts and signing in.
 
-Everyone signs in: a username and a password, kept as scrypt hashes in STATE/accounts.json (600),
-and a signed cookie that lasts a year. The first account is the owner's (MATKON_OWNER, "me" by
-default); its first password is written to STATE/initial-password.txt (600) until it's changed.
-The owner makes the other accounts in Settings. There's no open sign-up.
+Everyone signs in: a username (or the account's email) and a password, kept as scrypt hashes in
+STATE/accounts.json (600), and a signed cookie that lasts a year. The first account is the owner's
+(MATKON_OWNER, "me" by default); its first password is written to STATE/initial-password.txt (600)
+until it's changed. There's no open sign-up: the owner makes accounts in Settings, or invites an
+email, which gets a code (mail.py) to make its own.
+
+Codes (STATE/codes.json, 600, only their hashes): an invite lasts 7 days, a password reset or a new
+email's check 15 minutes, and each takes 8 wrong tries at most.
 
 Wrong passwords: 8 from one address in 15 minutes, or 30 from everywhere in an hour, and it waits.
 """
@@ -50,7 +54,7 @@ def _write(d):
 
 
 def _public(a):
-    return {k: a.get(k) for k in ("id", "name", "admin", "created")}
+    return {k: a.get(k) for k in ("id", "name", "admin", "created", "email")}
 
 
 def all_accounts():
@@ -87,8 +91,9 @@ def _new(aid, name, password, admin=False):
             "admin": admin, "created": int(time.time()), "epoch": 0}
 
 
-def add(aid, name, password, admin=False):
+def add(aid, name, password, admin=False, email=None):
     aid = (aid or "").strip().lower()
+    email = clean_email(email) if email else None
     if not USERNAME.match(aid):
         raise ValueError("A username is 2 to 32 letters, numbers, dots, dashes or underscores.")
     if len(password or "") < 8:
@@ -97,7 +102,12 @@ def add(aid, name, password, admin=False):
         d = _read()
         if any(a["id"] == aid for a in d["accounts"]):
             raise ValueError("That username is taken.")
-        d["accounts"].append(_new(aid, (name or "").strip() or aid, password, admin))
+        if email and any(a.get("email") == email for a in d["accounts"]):
+            raise ValueError("That email already has an account.")
+        a = _new(aid, (name or "").strip() or aid, password, admin)
+        if email:
+            a["email"] = email
+        d["accounts"].append(a)
         _write(d)
 
 
@@ -133,7 +143,9 @@ def update(aid, name=None, password=None):
 
 
 def check(aid, password):
-    a = next((a for a in _read()["accounts"] if a["id"] == (aid or "").strip().lower()), None)
+    """The account a username (or its email) and password sign in to, or None."""
+    key = (aid or "").strip().lower()
+    a = next((a for a in _read()["accounts"] if a["id"] == key or (a.get("email") and a["email"] == key)), None)
     if not a:
         _scrypt(password or "", b"0" * 16)       # the same time for a name that isn't there
         return None
@@ -181,3 +193,115 @@ def failed(addr):
 
 def passed(addr):
     _fails.pop(addr, None)
+
+
+# ---- emails and codes ------------------------------------------------------------------------------
+
+EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
+LIFE = {"invite": 7 * 86400, "reset": 15 * 60, "email": 15 * 60}
+ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def clean_email(e):
+    e = (e or "").strip().lower()
+    if not EMAIL.match(e):
+        raise ValueError("That isn't an email address.")
+    return e
+
+
+def by_email(email):
+    e = (email or "").strip().lower()
+    return next((_public(a) for a in _read()["accounts"] if a.get("email") == e), None)
+
+
+def set_email(aid, email):
+    email = clean_email(email)
+    with _lock:
+        d = _read()
+        if any(a.get("email") == email and a["id"] != aid for a in d["accounts"]):
+            raise ValueError("That email already has an account.")
+        for a in d["accounts"]:
+            if a["id"] == aid:
+                a["email"] = email
+        _write(d)
+
+
+def _codes_path():
+    return config.STATE / "codes.json"
+
+
+def _codes():
+    try:
+        c = json.loads(_codes_path().read_text())
+    except (OSError, ValueError):
+        c = {}
+    now = time.time()
+    return {k: v for k, v in c.items() if v.get("expires", 0) > now}
+
+
+def _save_codes(c):
+    tmp = _codes_path().with_suffix(".tmp")
+    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+        json.dump(c, f)
+    tmp.replace(_codes_path())
+
+
+def _hash(code):
+    secret = bytes.fromhex(_read()["secret"])
+    return hmac.new(secret, re.sub(r"[^A-Z0-9]", "", code.upper()).encode(), hashlib.sha256).hexdigest()
+
+
+def make_code(kind, email, **extra):
+    """A new code for this kind and email (replacing an older one). Returns it, for the email."""
+    email = clean_email(email)
+    if kind == "invite":
+        code = "".join(secrets.choice(ALPHABET) for _ in range(8))
+        code = code[:4] + "-" + code[4:]
+    else:
+        code = f"{secrets.randbelow(10 ** 6):06d}"
+    with _lock:
+        c = _codes()
+        c[f"{kind}:{email}"] = {"hash": _hash(code), "expires": time.time() + LIFE[kind], "tries": 0,
+                                "created": int(time.time()), **extra}
+        _save_codes(c)
+    return code
+
+
+def use_code(kind, email, code, keep=False):
+    """The code's record when the code is right (and gone, unless keep), else raises ValueError."""
+    try:
+        email = clean_email(email)
+    except ValueError:
+        raise ValueError("That code doesn't match.")
+    with _lock:
+        c = _codes()
+        rec = c.get(f"{kind}:{email}")
+        if not rec or rec["tries"] >= TRIES:
+            _save_codes(c)
+            raise ValueError("That code doesn't match, or it has run out. Ask for a new one.")
+        if not hmac.compare_digest(rec["hash"], _hash(code or "")):
+            rec["tries"] += 1
+            _save_codes(c)
+            raise ValueError("That code doesn't match.")
+        if not keep:
+            del c[f"{kind}:{email}"]
+        _save_codes(c)
+    return rec
+
+
+def drop_code(kind, email):
+    with _lock:
+        c = _codes()
+        c.pop(f"{kind}:{email.strip().lower()}", None)
+        _save_codes(c)
+
+
+def invites():
+    return sorted(({"email": k.split(":", 1)[1], "name": v.get("name", ""), "created": v.get("created"), "expires": int(v["expires"])}
+                   for k, v in _codes().items() if k.startswith("invite:")), key=lambda x: -(x["created"] or 0))
+
+
+def recent_code(kind, email, within=60):
+    """Whether a code of this kind went to this email in the last minute (so a button can't spam a mailbox)."""
+    rec = _codes().get(f"{kind}:{(email or '').strip().lower()}")
+    return bool(rec and time.time() - rec.get("created", 0) < within)

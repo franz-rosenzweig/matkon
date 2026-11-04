@@ -39,6 +39,7 @@ Matkon does the boring part. It watches the reel, writes out what's said, reads 
 - **It remembers.** Save a recipe, tap "I made it," rate it 1 to 10, write yourself a note ("20g less sugar next time"). Ticked ingredients and the step you're on are remembered too, on every device, so you can start on the tablet and finish on your phone.
 - **History.** What you cooked and when, what you opened lately, and everything Matkon brought in.
 - **Accounts.** One kitchen for the whole house: everyone signs in with their own account and keeps their own memory, history and suggestions, and anyone can connect their own Instagram collection to add to it. Each account can also turn calories and protein off.
+- **Invites by email.** There's no open sign-up. The owner types someone's email in Settings, Matkon emails them a code, and they open the link (or tap "I have a code") and pick a username and password. Accounts with an email can sign in with it and get a code when they forget their password.
 - **Settings in the app.** Connect Instagram and pick the collection, add a single reel by its link, and (for the owner) the kitchen's settings and the accounts.
 - **Hebrew too.** Hebrew reels stay in Hebrew, with Hebrew labels, right to left. Reels in any other language come out in English.
 - **Obsidian notes.** Every recipe can also be a note with proper front matter, so a Bases view of your recipes lists it. Once you edit a note, it's yours, and Matkon never writes over it.
@@ -109,7 +110,15 @@ python3 run.py sync --full      # the first run looks through ALL your saved pos
 python3 run.py serve            # the app, at http://127.0.0.1:8510
 ```
 
-The first run makes the owner's account (`MATKON_OWNER`, "me" by default) and writes its first password to `initial-password.txt` in the state folder. Sign in with it and change it in Settings, or with `python3 run.py password`. The owner makes everyone else's accounts in Settings; there's no open sign-up.
+The first run makes the owner's account (`MATKON_OWNER`, "me" by default) and writes its first password to `initial-password.txt` in the state folder. Sign in with it and change it in Settings, or with `python3 run.py password`. The owner invites everyone else by email, or makes their accounts by hand, in Settings; there's no open sign-up.
+
+For the invites and the forgot-password codes, give Matkon an SMTP server in `mail.json` in the state folder (Proton Mail Bridge on the same machine works):
+
+```json
+{"host": "127.0.0.1", "port": 1025, "user": "you@example.com", "pass": "…", "from": "Matkon <support@example.com>"}
+```
+
+Without it, an invite shows its code and link for you to pass on yourself.
 
 After that, run `python3 run.py sync` every hour or so (cron is fine). It looks at your newest saves, and once a week at all of them, in case you move an old save into the collection.
 
@@ -140,6 +149,7 @@ Under the hood there are two small files. **`matkon.env`**, for where things are
 | `MATKON_NOTIFY` | a command to tell you about new recipes and a lapsed sign-in: `CMD "Matkon" "message" [now]` |
 | `MATKON_PY` | the Python with yt-dlp and faster-whisper, if it isn't `.venv` |
 | `MATKON_OWNER` | the owner's username, for the first account |
+| `MATKON_MAIL` | where the SMTP settings are, if not `mail.json` in the state folder |
 
 **`settings.json`**, in the state folder, for how the kitchen behaves (the same as the Kitchen part of Settings):
 
@@ -148,7 +158,7 @@ Under the hood there are two small files. **`matkon.env`**, for where things are
 | `collection_id` | | the collection to read (`collection` sets it) |
 | `notes_dir`, `photos_dir` | `Recipes`, `Recipes/media` | where the notes and their photos go in the vault |
 | `note_tag` | | a tag on its own line above each note's title |
-| `app_url` | `http://127.0.0.1:8510` | the app's address, for the link in each note |
+| `app_url` | `http://127.0.0.1:8510` | the app's address, for the link in each note and in invites |
 | `scan_pages` | `3` | how many pages of newest saves an hourly run looks at (21 a page) |
 | `full_every_hours` | `168` | how often a run looks at every saved post |
 | `per_run` | `6` | how many reels a run works through at most |

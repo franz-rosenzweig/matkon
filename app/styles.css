@@ -307,3 +307,8 @@ img, video { display: block; max-width: 100%; }
   padding: 10px 18px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 15px; max-width: calc(100vw - 32px); }
 .msg:empty { display: none; }
 .msg.bad { background: #B42318; color: #fff; }
+.signin-box .link, .link { background: none; border: 0; padding: 6px 0; color: var(--accent); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; justify-self: center; }
+.signin-box .links { display: flex; justify-content: space-between; gap: 12px; }
+.invite-code { display: grid; gap: 4px; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); }
+.invite-code b { font-size: 22px; letter-spacing: .08em; }
+.invite-code .cap { font-size: 13px; color: var(--muted); word-break: break-all; }
