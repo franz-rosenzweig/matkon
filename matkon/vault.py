@@ -63,7 +63,7 @@ def _yaml(v):
     return json.dumps(v, ensure_ascii=False)
 
 
-def render(r, post, photo_name):
+def render(r, post, photo_name, my_notes=""):
     h = HEAD[r["lang"]]
     st = config.settings()
     code = post["code"]
@@ -117,7 +117,7 @@ def render(r, post, photo_name):
         src.append(f"[{h['page']}]({r['link']})")
     src.append(f"[{h['open']}]({st['app_url']}/#/r/{code})")
     body += [f"## {h['src']}", "", " · ".join(src), "",
-             f"## {h['notes']}", "", "- ", ""]
+             f"## {h['notes']}", ""] + ([my_notes.strip(), ""] if my_notes.strip() else ["- ", ""])
     return "\n".join(fm + body)
 
 
@@ -130,7 +130,7 @@ def split(text):
     return "", text
 
 
-def write(folder, r, post, notes):
+def write(folder, r, post, notes, my_notes=None):
     """Writes (or refreshes) the note for this reel. Returns its path, or None when it was left alone.
 
     Obsidian's plugins rewrite front matter on their own (quotes, an `updated:` line), and rating and
@@ -149,7 +149,9 @@ def write(folder, r, post, notes):
         dst = pdir / photo_name
         if not dst.exists() or dst.read_bytes() != src.read_bytes():
             shutil.copyfile(src, dst)
-    text = render(r, post, photo_name)
+    if my_notes is None:
+        my_notes = _owner_notes(code)
+    text = render(r, post, photo_name, my_notes)
     path = notes.get(code)
     if path and path.exists():
         fm, body = split(path.read_text(encoding="utf-8"))
@@ -170,4 +172,65 @@ def write(folder, r, post, notes):
     tmp.replace(path)
     record_path.write_text(json.dumps({"path": str(path), "body_sha": _sha(split(text)[1]), "written": int(time.time())}))
     notes[code] = path
+    return path
+
+
+# ---- the owner's memory, in the note ---------------------------------------------------------------
+
+def _owner_notes(code):
+    from . import accounts, memory
+    aid = accounts.owner()
+    return memory.view(aid)["notes"].get(code, "") if aid else ""
+
+
+def _set_key(fm, key, value):
+    """Sets one top-level key in a front matter block (with its --- lines), adding it before the end."""
+    line = f"{key}: {value}".rstrip()
+    lines = fm.rstrip("\n").split("\n")
+    for i, l in enumerate(lines):
+        if re.match(rf"^{re.escape(key)}:", l):
+            j = i + 1                                  # a list or map under it goes too
+            while j < len(lines) - 1 and re.match(r"^\s+\S", lines[j]):
+                j += 1
+            lines[i:j] = [line]
+            return "\n".join(lines) + "\n"
+    lines.insert(len(lines) - 1, line)
+    return "\n".join(lines) + "\n"
+
+
+def remember(code):
+    """Puts the owner's rating, cooked and last-made date in the note's front matter, and their notes in
+    its body while the body is still Matkon's. Quietly does nothing without a vault or a note."""
+    from . import accounts, memory
+    if not config.VAULT:
+        return None
+    folder = config.REELS / code
+    try:
+        record = json.loads((folder / "vault-note.json").read_text())
+        r = json.loads((folder / "recipe.json").read_text())
+        post = json.loads((folder / "post.json").read_text())
+    except (OSError, ValueError):
+        return None
+    path = Path(record.get("path") or "")
+    if not path.exists():
+        path = find_notes().get(code)
+        if not path:
+            return None
+    m = memory.view(accounts.owner())
+    fm, body = split(path.read_text(encoding="utf-8"))
+    if not fm:
+        return None
+    fm = _set_key(fm, "rating", m["ratings"].get(code, ""))
+    last = m["cooked_last"].get(code)
+    fm = _set_key(fm, "cooked", "true" if last else "false")
+    fm = _set_key(fm, "last", time.strftime("%Y-%m-%d", time.localtime(last)) if last else "")
+    if _sha(body) == record.get("body_sha"):           # still Matkon's: the notes go in too
+        photo = f"{code}.jpg" if (config.VAULT / config.settings()["photos_dir"] / f"{code}.jpg").exists() else None
+        body = split(render(r, post, photo, m["notes"].get(code, "")))[1]
+        record["body_sha"] = _sha(body)
+    tmp = path.with_name(path.name + ".matkon-tmp")
+    tmp.write_text(fm + body, encoding="utf-8")
+    tmp.replace(path)
+    record["path"] = str(path)
+    (folder / "vault-note.json").write_text(json.dumps(record))
     return path

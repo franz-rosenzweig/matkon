@@ -30,16 +30,42 @@ class SignedOut(Exception):
     """Instagram sent us to its sign-in page: the session in the cookies file has lapsed."""
 
 
-def _jar():
+def parse_cookies(text):
+    """{name: value} from a Netscape cookies.txt, or from the JSON cookie lists browser extensions export."""
     jar = {}
-    try:
-        lines = config.COOKIES.read_text().splitlines()
-    except OSError:
-        raise SignedOut(f"no cookies file at {config.COOKIES}")
-    for line in lines:
+    text = (text or "").strip()
+    if text.startswith("[") or text.startswith("{"):
+        try:
+            data = json.loads(text)
+        except ValueError:
+            data = []
+        for c in data if isinstance(data, list) else data.get("cookies", []):
+            if isinstance(c, dict) and "instagram.com" in str(c.get("domain", ".instagram.com")) and c.get("name"):
+                jar[c["name"]] = str(c.get("value", ""))
+        return jar
+    for line in text.splitlines():
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
         p = line.split("\t")
-        if not line.startswith("#") and len(p) == 7:
+        if not line.startswith("#") and len(p) == 7 and "instagram.com" in p[0]:
             jar[p[5]] = p[6]
+    return jar
+
+
+def netscape(jar):
+    """A cookies.txt yt-dlp can read."""
+    lines = ["# Netscape HTTP Cookie File"]
+    for k, v in jar.items():
+        lines.append("\t".join([".instagram.com", "TRUE", "/", "TRUE", str(int(time.time()) + 365 * 86400), k, v]))
+    return "\n".join(lines) + "\n"
+
+
+def _jar(cookies=None):
+    path = cookies or config.COOKIES
+    try:
+        jar = parse_cookies(path.read_text())
+    except OSError:
+        raise SignedOut(f"no cookies file at {path}")
     if not jar.get("sessionid"):
         raise SignedOut("the cookies file has no Instagram sign-in (sessionid)")
     return jar
@@ -50,8 +76,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def _get(path, params=None):
-    jar = _jar()
+def _get(path, params=None, cookies=None):
+    jar = _jar(cookies)
     url = "https://www.instagram.com" + path + (("?" + urllib.parse.urlencode(params)) if params else "")
     req = urllib.request.Request(url, headers={
         "Cookie": "; ".join(f"{k}={v}" for k, v in jar.items()), "User-Agent": UA,
@@ -70,11 +96,11 @@ def _get(path, params=None):
         raise SignedOut("Instagram sent a page instead of data")
 
 
-def saved_posts(pages):
+def saved_posts(pages, cookies=None):
     """The newest saved posts, up to `pages` pages of them, gently (a few seconds between pages)."""
     max_id = None
     for n in range(pages):
-        d = _get("/api/v1/feed/saved/posts/", {"max_id": max_id} if max_id else None)
+        d = _get("/api/v1/feed/saved/posts/", {"max_id": max_id} if max_id else None, cookies)
         for x in d.get("items", []):
             if x.get("media"):
                 yield x["media"]
@@ -118,11 +144,20 @@ def download_cover(url, dest):
     tmp.replace(dest)
 
 
-def download_video(code, dest):
+def signed_in(cookies=None):
+    """Whether Instagram still takes this sign-in: one small request."""
+    try:
+        _get("/api/v1/feed/saved/posts/", None, cookies)
+        return True
+    except SignedOut:
+        return False
+
+
+def download_video(code, dest, cookies=None):
     """The reel's video, with yt-dlp and a copy of the sign-in. Raises SignedOut or RuntimeError."""
     with tempfile.TemporaryDirectory(dir=config.STATE, prefix=".dl-") as tmp:   # on disk: /tmp is RAM
         jar = Path(tmp) / "cookies.txt"
-        jar.write_text(config.COOKIES.read_text())
+        jar.write_text((cookies or config.COOKIES).read_text())
         os.chmod(jar, 0o600)
         r = subprocess.run(config.YTDLP + [
             "--cookies", str(jar), "--no-playlist", "--no-progress",

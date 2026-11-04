@@ -17,7 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _load_env():
-    for p in [os.environ.get("MATKON_ENV"), ROOT / "private" / "matkon.env", ROOT / "matkon.env"]:
+    # MATKON_ENV, when it's set, is the only file read (a name that isn't there: none at all)
+    paths = [os.environ["MATKON_ENV"]] if "MATKON_ENV" in os.environ else [ROOT / "private" / "matkon.env", ROOT / "matkon.env"]
+    for p in paths:
         if p and Path(p).is_file():
             for line in Path(p).read_text(encoding="utf-8").splitlines():
                 line = line.strip()

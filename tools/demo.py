@@ -177,14 +177,46 @@ def build(state):
         (f / "recipe.json").write_text(json.dumps(rec, ensure_ascii=False))
 
 
+def remembered(state):
+    """Two made-up accounts, Sam (the owner) and Alex, and what Sam has saved, cooked, rated and opened."""
+    from matkon import accounts, memory
+    import secrets as _s
+    accounts.ensure()
+    accounts.add("alex", "Alex", _s.token_urlsafe(12))
+    for code in ("demo-hummus", "demo-smoothie"):
+        p = state / "reels" / code / "post.json"
+        post = json.loads(p.read_text())
+        post["added_by"] = "alex"
+        p.write_text(json.dumps(post))
+    day = 86400
+    m = memory.load("sam")
+    m["saved"] = {"demo-salad": time.time() - 2 * day, "demo-pappardelle": time.time() - 9 * day, "demo-hummus": time.time() - day}
+    m["ratings"] = {"demo-cookies": 9, "demo-pancakes": 8, "demo-soup": 7, "demo-ramen": 10}
+    m["notes"] = {"demo-cookies": {"text": "Chilled the dough overnight: even better. 20g less sugar next time.", "at": time.time()}}
+    m["cooked"] = [{"id": "a1", "code": "demo-cookies", "at": time.time() - 2 * day}, {"id": "a2", "code": "demo-ramen", "at": time.time() - 23 * day},
+                   {"id": "a3", "code": "demo-pancakes", "at": time.time() - 6 * day}, {"id": "a4", "code": "demo-cookies", "at": time.time() - 30 * day},
+                   {"id": "a5", "code": "demo-soup", "at": time.time() - 12 * day}]
+    m["viewed"] = [[c, time.time() - i * 5400] for i, c in enumerate(["demo-cookies", "demo-shakshuka", "demo-salad", "demo-ramen", "demo-hummus"])]
+    memory._save("sam", m)
+    runs = [{"at": time.time() - 3 * 3600, "kind": "sync", "found": [{"code": "demo-ramen", "by": "sam"}, {"code": "demo-shakshuka", "by": "sam"}],
+             "made": [{"code": "demo-ramen", "title": ""}, {"code": "demo-shakshuka", "title": ""}], "failed": [], "signed_out": []},
+            {"at": time.time() - day, "kind": "add", "by": "alex", "made": [{"code": "demo-hummus", "title": ""}], "failed": []},
+            {"at": time.time() - 2 * day, "kind": "sync", "found": [{"code": "demo-cookies", "by": "sam"}, {"code": "demo-smoothie", "by": "alex"}],
+             "made": [{"code": "demo-cookies", "title": ""}, {"code": "demo-smoothie", "title": ""}], "failed": [], "signed_out": []}]
+    (state / "runs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in reversed(runs)))
+    (state / "initial-password.txt").unlink(missing_ok=True)
+
+
 def main():
     host = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
     port = sys.argv[2] if len(sys.argv) > 2 else "8519"
     state = Path(tempfile.mkdtemp(prefix="matkon-demo-"))
     build(state)
-    os.environ.update({"MATKON_STATE": str(state), "MATKON_SETTINGS": str(state / "settings.json"),
-                       "MATKON_HOSTS": host, "MATKON_PORT": port})
+    os.environ.update({"MATKON_STATE": str(state), "MATKON_SETTINGS": str(state / "settings.json"), "MATKON_COOKIES": str(state / "none.txt"),
+                       "MATKON_HOSTS": host, "MATKON_PORT": port, "MATKON_OWNER": "sam", "MATKON_DEMO_ACCOUNT": "sam",
+                       "MATKON_VAULT": "", "MATKON_NOTIFY": "", "MATKON_ENV": "/nonexistent"})
     sys.path.insert(0, str(ROOT))
+    remembered(state)
     from matkon import server
     print("demo state:", state, flush=True)
     server.main()

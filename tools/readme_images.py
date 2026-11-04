@@ -3,7 +3,8 @@
 screens get a device frame and a soft shadow, and the hero puts a tablet between two phones.
 
   python3 tools/readme_images.py <shots dir>      needs Pillow
-The shots it expects: home, ramen, cook, cook-dark, he, he-cook, home-tab, cookies-tab, missing (full).
+The shots it expects: home, ramen, cook, cook-dark, he, he-cook, home-tab, cookies-tab, missing (full),
+cookies-full (full), history, imported, cookdone, settings (full).
 """
 import shutil
 import sys
@@ -47,6 +48,8 @@ def shadowed(img, blur=40, offset=(0, 24), alpha=70):
 
 def phone(path, height):
     s = Image.open(path).convert("RGB")
+    if s.height > s.width * 2.3:                      # a full-page shot: its first screen
+        s = s.crop((0, 0, s.width, round(s.width * 844 / 390)))
     s = s.resize((round(s.width * height / s.height), height), Image.LANCZOS)
     return device(s, bezel=round(height * 0.018), radius=round(height * 0.05))
 
@@ -94,6 +97,23 @@ def main():
         row.alpha_composite(img, (x, 0))
         x += img.width + gap
     save(row, "phones.png", 1800)
+
+    # memory and history: what was cooked, what came in, rating and notes after cooking, settings
+    names = ["history", "imported", "cookdone", "settings"]
+    ph = [shadowed(phone(shots / f"{n}.png", 1200), blur=30, offset=(0, 16), alpha=60) for n in names]
+    gap = 40 - 2 * ph[0][1]
+    row = Image.new("RGBA", (sum(i.width for i, _ in ph) + gap * (len(ph) - 1), max(i.height for i, _ in ph)), (0, 0, 0, 0))
+    x = 0
+    for img, _ in ph:
+        row.alpha_composite(img, (x, 0))
+        x += img.width + gap
+    save(row, "memory.png", 1800)
+
+    # the "Mine" box on a recipe: made it, rating, notes
+    c = Image.open(shots / "cookies-full.png").convert("RGB")
+    c = c.crop((0, 4780, c.width, min(c.height, 5520)))
+    card, _ = shadowed(rounded(c, 40), blur=26, offset=(0, 14), alpha=55)
+    save(card, "mine.png", 700)
 
     # Hebrew, right to left
     he = [shadowed(phone(shots / f"{n}.png", 1200), blur=30, offset=(0, 16), alpha=60)[0] for n in ["he", "he-cook"]]

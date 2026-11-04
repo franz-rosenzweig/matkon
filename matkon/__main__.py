@@ -6,6 +6,7 @@
   python3 run.py add URL|CODE                one reel, even one outside the collection
   python3 run.py redo CODE [--from STAGE]    again from: video, transcript, frames, link, recipe, note
   python3 run.py status                      what's where
+  python3 run.py password [ACCOUNT]          a new password (the owner's by default)
   python3 run.py serve                       the app (server.py)
 
 Each reel goes through the stages in order (post → video → transcript → frames → link → recipe →
@@ -21,8 +22,9 @@ import shlex
 import subprocess
 import sys
 import time
+from pathlib import Path
 
-from . import config, instagram, linked, reel, recipe, vault
+from . import accounts, config, instagram, kitchen, linked, memory, reel, recipe, vault
 
 STAGES = ["video", "transcript", "frames", "link", "recipe", "note"]
 FILES = {"video": "video.mp4", "transcript": "transcript.json", "frames": "sheets.json", "link": "linked.json", "recipe": "recipe.json", "note": "note.json"}
@@ -74,12 +76,15 @@ def notify(title, msg, level=None):
     return r.returncode == 0
 
 
-def keep_post(p, rank=None):
-    """Saves what the listing said about a reel; new ones are marked with when they were found."""
+def keep_post(p, rank=None, by=None):
+    """Saves what the listing said about a reel; new ones are marked with when they were found, and
+    who added them (the first account whose collection had it)."""
     f = folder(p["code"])
     old = _read(f / "post.json", {})
     p = {**old, **p}
     p.setdefault("found", time.time() - (rank or 0))
+    if by and not p.get("added_by"):
+        p["added_by"] = by
     _write(f / "post.json", p)
     if p.get("cover_url") and not (f / "cover.jpg").exists():
         try:
@@ -94,7 +99,9 @@ def keep_post(p, rank=None):
 def stage_video(f, post):
     if post.get("media_type") not in (2, None):
         raise RuntimeError("not a video post")
-    instagram.download_video(post["code"], f / "video.mp4")
+    who = post.get("added_by") or accounts.owner()
+    cookies = kitchen.of(who)["cookies"] if who else None
+    instagram.download_video(post["code"], f / "video.mp4", cookies or kitchen.of(accounts.owner())["cookies"])
     time.sleep(2 + random.random() * 3)
 
 
@@ -192,53 +199,65 @@ def pending():
 
 # ---- commands ----------------------------------------------------------------------------------
 
-def signed_out(e):
-    st = config.settings()
-    flag = config.STATE / "signed-out"
-    say("Instagram sign-in lapsed:", e)
-    if not flag.exists():
-        if notify("Matkon", "Instagram turned away the sign-in, so new recipe reels wait. " + config.SIGNIN_HELP, "now"):
-            flag.write_text(str(int(time.time())))
+def signed_out(e, aid=None):
+    """Instagram turned an account's sign-in away. The owner hears about it once (MATKON_NOTIFY);
+    everyone sees it in Settings and on the home page."""
+    aid = aid or accounts.owner()
+    say(f"Instagram sign-in lapsed ({aid}):", e)
+    if aid and not kitchen.of(aid)["signed_out"]:
+        kitchen.mark_signed_out(aid)
+        if aid == accounts.owner():
+            notify("Matkon", "Instagram turned away the sign-in, so new recipe reels wait. " + config.SIGNIN_HELP, "now")
     return 0
 
 
 def cmd_sync(a):
     st = config.settings()
-    if not st.get("collection_id"):
-        say("No collection set: python3 -m matkon collection ID")
+    sources = kitchen.sources()
+    if not sources:
+        say("No collection to read: connect Instagram and pick a collection in Settings, or: python3 run.py collection ID")
         return 2
-    # Once a day, every saved post: a reel saved long ago and only now put in the collection keeps its
+    # Once a week, every saved post: a reel saved long ago and only now put in the collection keeps its
     # old place among the saves, deeper than the newest few pages.
     last_full = config.STATE / "last-full"
     full = a.full or (st.get("full_every_hours") and
                       (not last_full.exists() or time.time() - last_full.stat().st_mtime > st["full_every_hours"] * 3600))
     pages = 5000 if full else st["scan_pages"]       # "every": until Instagram says there's no more
-    new = 0
-    try:
-        for rank, m in enumerate(instagram.saved_posts(pages)):
-            if st["collection_id"] in instagram.collections_of(m):
-                p = instagram.post(m)
-                if p.get("code") and keep_post(p, rank):
-                    new += 1
-                    say(p["code"], "new, by @" + p["user"])
-    except instagram.SignedOut as e:
-        return signed_out(e)
-    (config.STATE / "signed-out").unlink(missing_ok=True)
-    if full:
+    found, lapsed = [], []
+    for aid, cookies, cid in sources:
+        new = 0
+        try:
+            for rank, m in enumerate(instagram.saved_posts(pages, cookies)):
+                if cid in instagram.collections_of(m):
+                    p = instagram.post(m)
+                    if p.get("code") and keep_post(p, rank, by=aid):
+                        new += 1
+                        found.append({"code": p["code"], "by": aid})
+                        say(p["code"], f"new from {aid}, by @" + p["user"])
+            kitchen.mark_signed_in(aid)
+        except instagram.SignedOut as e:
+            signed_out(e, aid)
+            lapsed.append(aid)
+        say(f"{aid}: {new} new" + (" (looked through every saved post)" if full else ""))
+    if full and len(lapsed) < len(sources):
         last_full.touch()
-    say(f"{new} new in the collection" + (" (looked through every saved post)" if full else ""))
     notes = (vault.find_notes() if config.VAULT else {})
-    done = []
+    done, failed = [], []
     try:
         for code in pending()[: (a.limit or st["per_run"])]:
             if work(code, notes):
                 r = _read(config.REELS / code / "recipe.json", {})
                 if r.get("is_recipe"):
-                    done.append(r["title"])
+                    done.append({"code": code, "title": r["title"]})
+            else:
+                failed.append({"code": code, "error": (status_of(config.REELS / code).get("error") or "")[:200]})
     except instagram.SignedOut as e:
-        return signed_out(e)
+        signed_out(e)
+        lapsed.append(accounts.owner())
+    if found or done or failed or lapsed:
+        memory.log_run({"kind": "sync", "full": bool(full), "found": found, "made": done, "failed": failed, "signed_out": lapsed})
     if done and not a.quiet:
-        notify("Matkon", "New recipes: " + "; ".join(done) + f". {st['app_url']}")
+        notify("Matkon", "New recipes: " + "; ".join(d["title"] for d in done) + f". {st['app_url']}")
     return 0
 
 
@@ -247,16 +266,30 @@ def _code(s):
     return m.group(1) if m else s.strip().strip("/")
 
 
-def cmd_add(a):
+def queue_add(a):
+    """Puts the reel in the kitchen's queue before anything else, so if another run holds the lock, that
+    run (or the next one) makes it."""
     code = _code(a.what)
+    if not memory.CODE.match(code):
+        say("That isn't a reel link.")
+        return None
     f = folder(code)
     if not (f / "post.json").exists():
         keep_post({"code": code, "user": "", "caption": "", "media_type": None,
-                   "url": f"https://www.instagram.com/reel/{code}/"})
+                   "url": f"https://www.instagram.com/reel/{code}/"}, by=a.by or accounts.owner())
+    return code
+
+
+def cmd_add(a):
+    code = _code(a.what)
+    f = folder(code)
     try:
         ok = work(code, (vault.find_notes() if config.VAULT else {}))
     except instagram.SignedOut as e:
-        return signed_out(e)
+        return signed_out(e, a.by)
+    r = _read(f / "recipe.json", {})
+    memory.log_run({"kind": "add", "by": a.by or accounts.owner(), "made": [{"code": code, "title": r.get("title", "")}] if ok else [],
+                    "failed": [] if ok else [{"code": code, "error": (status_of(f).get("error") or "")[:200]}]})
     return 0 if ok else 1
 
 
@@ -291,8 +324,9 @@ def cmd_collections(a):
     """Your saved collections, by Instagram's id for them, with a few captions from each, so you can
     tell which one is the recipes. (Instagram's web app doesn't give their names anymore.)"""
     seen, count = collections.defaultdict(list), collections.Counter()
+    cookies = kitchen.of(a.account)["cookies"] if a.account else None
     try:
-        for m in instagram.saved_posts(a.pages):
+        for m in instagram.saved_posts(a.pages, cookies):
             cap = re.sub(r"\s+", " ", ((m.get("caption") or {}).get("text") or "")).strip()
             for c in instagram.collections_of(m) or ["(in no collection)"]:
                 count[c] += 1
@@ -300,12 +334,31 @@ def cmd_collections(a):
                     seen[c].append(cap[:80])
     except instagram.SignedOut as e:
         print("Instagram sign-in lapsed:", e)
+        if a.out:
+            Path(a.out).write_text(json.dumps({"error": "signed out", "at": int(time.time())}))
         return 1
+    if a.out:                                      # for the Settings page
+        Path(a.out).write_text(json.dumps({"at": int(time.time()), "collections": [
+            {"id": c, "count": n, "captions": seen[c]} for c, n in count.most_common() if c != "(in no collection)"]}))
+        return 0
     for c, n in count.most_common():
         print(f"{c}  ({n} saved)")
         for cap in seen[c]:
             print("    " + cap)
     print("\nThen: python3 run.py collection <id> Recipes")
+    return 0
+
+
+def cmd_password(a):
+    """A new password for an account (the owner's by default), typed twice."""
+    import getpass
+    aid = a.account or accounts.owner()
+    pw = getpass.getpass(f"New password for {aid}: ")
+    if pw != getpass.getpass("Again: "):
+        print("They don't match.")
+        return 1
+    accounts.update(aid, password=pw)
+    print(f"Done. {aid} is signed out everywhere until they sign in with it.")
     return 0
 
 
@@ -323,13 +376,19 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("sync"); s.add_argument("--full", action="store_true"); s.add_argument("--limit", type=int)
     s.add_argument("--quiet", action="store_true", help="no message about new recipes")
-    s = sub.add_parser("add"); s.add_argument("what")
+    s = sub.add_parser("add"); s.add_argument("what"); s.add_argument("--by", help="the account adding it")
     s = sub.add_parser("redo"); s.add_argument("code"); s.add_argument("--from", dest="stage", choices=STAGES, default="recipe")
     sub.add_parser("status")
     s = sub.add_parser("collections"); s.add_argument("--pages", type=int, default=5000)
+    s.add_argument("--account"); s.add_argument("--out", help="write the list as JSON here")
+    s = sub.add_parser("password"); s.add_argument("account", nargs="?")
     s = sub.add_parser("collection"); s.add_argument("id"); s.add_argument("name", nargs="*")
     sub.add_parser("serve")
     a = ap.parse_args()
+    config.STATE.mkdir(parents=True, exist_ok=True)
+    accounts.ensure()
+    if a.cmd == "password":
+        return cmd_password(a)
     if a.cmd == "serve":
         from . import server
         return server.main()
@@ -341,11 +400,13 @@ def main():
         return cmd_collections(a)
     config.STATE.mkdir(parents=True, exist_ok=True)
     config.REELS.mkdir(exist_ok=True)
+    if a.cmd == "add" and not queue_add(a):
+        return 1
     lock = open(config.STATE / ".lock", "w")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        say("Another run is going; this one stops.")
+        say("Another run is going; this one stops." + (" The reel waits in the queue for it." if a.cmd == "add" else ""))
         return 0
     return {"sync": cmd_sync, "add": cmd_add, "redo": cmd_redo}[a.cmd](a)
 

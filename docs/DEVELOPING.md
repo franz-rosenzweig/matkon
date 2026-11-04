@@ -10,7 +10,10 @@ The notes I want when I come back to this later.
 - `matkon/linked.py` fetches the caption's link once, as itself (no disguise). It keeps the page's schema.org Recipe when there is one, and the page's text when there isn't. A Substack front page gets an archive search for the dish.
 - `matkon/recipe.py` holds the prompt and the call: `claude --print` with `--tools ""`, the frames sent inline in one stream-json message, and the answer cleaned into a fixed shape. Claude's raw answer is kept as `answer.txt`.
 - `matkon/vault.py` writes the note. It compares only the BODY to what Matkon wrote last (`vault-note.json`), because Obsidian's plugins rewrite front matter on their own.
-- `matkon/server.py` serves the app, the JSON and the media, with byte ranges for Safari's video player.
+- `matkon/accounts.py` holds the accounts (scrypt hashes in `accounts.json`, 600) and the signed cookie, which carries an epoch so a new password signs that account out everywhere.
+- `matkon/kitchen.py` says whose Instagram feeds the kitchen: each account's own `users/<id>/cookies.txt` and `instagram.json`, and for the owner, `MATKON_COOKIES` and `settings.json` as a fallback.
+- `matkon/memory.py` is each account's memory (`users/<id>/memory.json`), the run log (`runs.jsonl`) and `suggest`, which ranks the kitchen for one account from what it saved, cooked, rated and opened.
+- `matkon/server.py` serves the app, the JSON and the media, with byte ranges for Safari's video player. Everything but the app's own files needs an account, and every change is a POST with JSON and an `X-Matkon: 1` header. Settings actions that take a while (finding collections, adding a reel, "Check now") run `run.py` in the background.
 - `app/` is plain JS with no build step.
 
 ## A reel's folder
