@@ -18,10 +18,10 @@ from . import config
 SKIP_DIRS = {".obsidian", ".trash", ".claude", ".git", "node_modules"}
 HEAD = {
     "en": {"ing": "Ingredients", "dir": "Directions", "tips": "Tips", "nut": "Nutrition", "miss": "Not in the reel",
-           "src": "Source", "notes": "Notes", "serves": "Serves", "prep": "Prep", "cook": "Cook", "total": "Total",
+           "src": "Source", "notes": "Notes", "serves": "Serves", "makes": "Makes", "prep": "Prep", "cook": "Cook", "total": "Total",
            "oven": "Oven", "per": "Per", "open": "Open in Matkon", "on": "on Instagram", "page": "Recipe page"},
     "he": {"ing": "מצרכים", "dir": "אופן ההכנה", "tips": "טיפים", "nut": "ערכים תזונתיים", "miss": "חסר בסרטון",
-           "src": "מקור", "notes": "הערות", "serves": "מנות", "prep": "הכנה", "cook": "בישול", "total": "סה״כ",
+           "src": "מקור", "notes": "הערות", "serves": "מנות", "makes": "כמות", "prep": "הכנה", "cook": "בישול", "total": "סה״כ",
            "oven": "תנור", "per": "ל", "open": "פתיחה במתכון", "on": "באינסטגרם", "page": "דף המתכון"},
 }
 
@@ -82,7 +82,8 @@ def render(r, post, photo_name):
         body += [f"![[{photo_name}]]", ""]
     facts = []
     if r["servings"]:
-        facts.append(f"{h['serves']}: {r['servings']}")
+        plain = re.match(r"^\d+([–-]\d+)?( |$)(as\b|people|servings?\b|$)", r["servings"].strip())
+        facts.append(f"{h['serves'] if plain else h['makes']}: {r['servings']}")
     for k in ("prep", "cook", "total"):
         if r["time"].get(k):
             facts.append(f"{h[k]}: {r['time'][k]}")

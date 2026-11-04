@@ -44,12 +44,12 @@
 
   /* Labels on a recipe page follow the recipe's language. */
   const L = {
-    en: { ing: "Ingredients", steps: "Steps", tips: "Tips", nut: "Nutrition", miss: "Not in the reel", serves: "Serves", prep: "Prep",
+    en: { ing: "Ingredients", steps: "Steps", tips: "Tips", nut: "Nutrition", miss: "Not in the reel", serves: "Serves", makes: "Makes", prep: "Prep",
       cook: "Cook", total: "Total", oven: "Oven", start: "Start cooking", watch: "Watch the reel", ig: "Instagram", page: "Recipe page",
       read: "Read aloud", stopRead: "Stop", awake: "Keep the screen on", step: (k, n) => `Step ${k} of ${n}`, next: "Next", backStep: "Back",
       done: "Done", finished: "All done", again: "Start again", toRecipe: "Back to the recipe", uses: "Uses", timer: (m) => `Timer ${fmtMin(m)}`,
       noAmt: "no amount", calories: "Calories", protein: "Protein", carbs: "Carbs", fat: "Fat", per: "per", close: "Close", notRecipe: "Not a recipe" },
-    he: { ing: "מצרכים", steps: "אופן ההכנה", tips: "טיפים", nut: "ערכים תזונתיים", miss: "חסר בסרטון", serves: "מנות", prep: "הכנה",
+    he: { ing: "מצרכים", steps: "אופן ההכנה", tips: "טיפים", nut: "ערכים תזונתיים", miss: "חסר בסרטון", serves: "מנות", makes: "כמות", prep: "הכנה",
       cook: "בישול", total: "סה״כ", oven: "תנור", start: "מתחילים לבשל", watch: "לצפייה בסרטון", ig: "אינסטגרם", page: "דף המתכון",
       read: "הקראה", stopRead: "עצירה", awake: "המסך נשאר דולק", step: (k, n) => `שלב ${k} מתוך ${n}`, next: "הבא", backStep: "הקודם",
       done: "סיימתי", finished: "בתיאבון", again: "מההתחלה", toRecipe: "חזרה למתכון", uses: "צריך", timer: (m) => `טיימר ${m} דק׳`,
@@ -223,7 +223,7 @@
   /* ---------- recipe ---------- */
   function factsHTML(r, l) {
     const c = [];
-    if (r.servings) c.push(`<span class="chip">${I.people}${esc(l.serves)} ${esc(r.servings)}</span>`);
+    if (r.servings) c.push(`<span class="chip">${I.people}${esc(/^\d+([–-]\d+)?( |$)(as\b|people|servings?\b|$)/.test(r.servings.trim()) ? l.serves : l.makes)} ${esc(r.servings)}</span>`);
     [["prep", l.prep], ["cook", l.cook], ["total", l.total]].forEach(([k, name]) => { if (r.time && r.time[k]) c.push(`<span class="chip">${I.clock}${esc(name)} ${esc(r.time[k])}</span>`); });
     if (r.oven) c.push(`<span class="chip">${I.oven}${esc(l.oven)} ${esc(r.oven)}</span>`);
     return c.length ? `<div class="chips facts">${c.join("")}</div>` : "";
@@ -292,16 +292,19 @@
 
   /* ---------- cook mode ---------- */
   function stem(w) { return w.replace(/(es|s)$/i, ""); }
+  const reEsc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   function usesOf(r, s) {
-    // the ingredients a step names, with their amounts, so the amounts are there while cooking
-    const text = " " + norm(s.text) + " ";
+    // the ingredients a step names, with their amounts, so the amounts are there while cooking. A name
+    // counts at the start of a word ("oil" isn't in "boil"); Hebrew words can carry a prefix (ה, ו, ב…).
+    const text = norm(s.text);
+    const pre = r.lang === "he" ? "[והבלמשכ]{0,2}" : "";
     const out = [];
     r.ingredient_groups.forEach((g) => g.items.forEach((i) => {
       if (!i.amount) return;
       const words = norm(i.item).split(" ").filter((w) => w.length > 2);
       if (!words.length) return;
       const key = stem(words[words.length - 1]);
-      if (key.length > 2 && text.includes(key) && !out.some((o) => stem(norm(o.item).split(" ").pop()) === key)) out.push(i);
+      if (key.length > 2 && new RegExp("(^| )" + pre + reEsc(key), "u").test(text) && !out.some((o) => stem(norm(o.item).split(" ").pop()) === key)) out.push(i);
     }));
     return out.slice(0, 6);
   }

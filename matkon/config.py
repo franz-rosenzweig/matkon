@@ -58,6 +58,7 @@ DEFAULTS = {
     "note_tag": "",                 # an inline tag put on its own line above each note's title, if you want one
     "app_url": "http://127.0.0.1:8510",   # where the app is, for the link in each note
     "scan_pages": 3,                # newest saved pages to look through on a normal run (21 posts a page)
+    "full_every_hours": 168,        # and every saved post this often (0: only with sync --full)
     "per_run": 6,                   # reels to work through per run, at most
 }
 

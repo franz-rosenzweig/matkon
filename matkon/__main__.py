@@ -207,7 +207,12 @@ def cmd_sync(a):
     if not st.get("collection_id"):
         say("No collection set: python3 -m matkon collection ID")
         return 2
-    pages = 80 if a.full else st["scan_pages"]
+    # Once a day, every saved post: a reel saved long ago and only now put in the collection keeps its
+    # old place among the saves, deeper than the newest few pages.
+    last_full = config.STATE / "last-full"
+    full = a.full or (st.get("full_every_hours") and
+                      (not last_full.exists() or time.time() - last_full.stat().st_mtime > st["full_every_hours"] * 3600))
+    pages = 5000 if full else st["scan_pages"]       # "every": until Instagram says there's no more
     new = 0
     try:
         for rank, m in enumerate(instagram.saved_posts(pages)):
@@ -219,7 +224,9 @@ def cmd_sync(a):
     except instagram.SignedOut as e:
         return signed_out(e)
     (config.STATE / "signed-out").unlink(missing_ok=True)
-    say(f"{new} new in the collection")
+    if full:
+        last_full.touch()
+    say(f"{new} new in the collection" + (" (looked through every saved post)" if full else ""))
     notes = (vault.find_notes() if config.VAULT else {})
     done = []
     try:
@@ -319,7 +326,7 @@ def main():
     s = sub.add_parser("add"); s.add_argument("what")
     s = sub.add_parser("redo"); s.add_argument("code"); s.add_argument("--from", dest="stage", choices=STAGES, default="recipe")
     sub.add_parser("status")
-    s = sub.add_parser("collections"); s.add_argument("--pages", type=int, default=80)
+    s = sub.add_parser("collections"); s.add_argument("--pages", type=int, default=5000)
     s = sub.add_parser("collection"); s.add_argument("id"); s.add_argument("name", nargs="*")
     sub.add_parser("serve")
     a = ap.parse_args()

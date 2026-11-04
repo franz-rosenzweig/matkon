@@ -26,13 +26,21 @@ The notes I want when I come back to this later.
 
 Matkon sends one message (`MATKON_NOTIFY ... now`) and then stays quiet until the sign-in works again. The app shows a line on the home page too.
 
-## Screenshots
+## The pictures in the README
 
-`tools/shot.js` (Node 22+, for its built-in WebSocket) drives a headless Chrome over DevTools: `DEVTOOLS=host:port`, or `CHROME=<docker container>` to find one. Run a test server where that Chrome can reach it:
+They all come from the demo, never from a real collection, since real recipes show other people's videos and faces.
+
+1. `tools/demo.py [host] [port]` serves ten made-up recipes by made-up creators (`@….example`), with the public-domain photos in `tools/demo/photos` (credits in `tools/demo/CREDITS.md`) and a short clip made from each one in place of the reel.
+2. `tools/shot.js` (Node 22+, for its built-in WebSocket) drives a headless Chrome over DevTools: `DEVTOOLS=host:port`, or `CHROME=<docker container>` to find one. Each shot gets a fresh browser context.
+3. `tools/readme_images.py <shots dir>` (Pillow) puts the screens in device frames and builds `docs/images`.
 
 ```bash
-MATKON_PORT=8511 python3 run.py serve
-node tools/shot.js http://127.0.0.1:8511/ /tmp/shots home:390x844 "recipe:1317x823:#/r/<code>" "cook:390x844:dark:#/cook/<code>/1"
+python3 tools/demo.py 127.0.0.1 8519 &
+node tools/shot.js http://127.0.0.1:8519/ /tmp/shots home:390x844 home-tab:1317x823 \
+  "ramen:390x844:#/r/demo-ramen" "cookies-tab:1317x823:#/r/demo-cookies" "cook:390x844:#/cook/demo-pancakes/4" \
+  "cook-dark:390x844:dark:#/cook/demo-ramen/1" "he:390x844:dark:#/r/demo-shakshuka" \
+  "he-cook:390x844:dark:#/cook/demo-shakshuka/5" "missing:390x844:full:#/r/demo-spaghetti"
+python3 tools/readme_images.py /tmp/shots
 ```
 
-Screenshots of real recipes show other people's videos, so they don't go in this repo.
+`how-it-works.svg` is drawn by hand.

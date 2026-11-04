@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 300" width="1240" height="300" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect width="1240" height="300" rx="28" fill="#F5F2EC"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#B8441A"/></marker>
+  </defs>
+  <g fill="none" stroke="#B8441A" stroke-width="2.5" marker-end="url(#a)">
+    <path d="M238 150h26"/><path d="M478 150h26"/><path d="M718 150h26"/><path d="M958 150h26"/>
+  </g>
+  <g font-size="15" fill="#6E685F">
+    <!-- 1 -->
+    <rect x="28" y="40" width="208" height="220" rx="18" fill="#FFFFFF" stroke="#E5DFD4"/>
+    <circle cx="68" cy="84" r="24" fill="#F6E3D9"/>
+    <path d="M60 72h16v26l-8-6-8 6z" fill="none" stroke="#B8441A" stroke-width="2.6" stroke-linejoin="round"/>
+    <text x="48" y="142" font-size="19" font-weight="700" fill="#1E1C19">Save</text>
+    <text x="48" y="170">You save a cooking</text><text x="48" y="192">reel to your Recipes</text><text x="48" y="214">collection, as usual.</text>
+    <!-- 2 -->
+    <rect x="268" y="40" width="208" height="220" rx="18" fill="#FFFFFF" stroke="#E5DFD4"/>
+    <circle cx="308" cy="84" r="24" fill="#F6E3D9"/>
+    <rect x="296" y="73" width="17" height="22" rx="3" fill="none" stroke="#B8441A" stroke-width="2.6"/>
+    <path d="M313 80l9-5v18l-9-5" fill="none" stroke="#B8441A" stroke-width="2.6" stroke-linejoin="round"/>
+    <text x="288" y="142" font-size="19" font-weight="700" fill="#1E1C19">Watch</text>
+    <text x="288" y="170">It downloads the reel,</text><text x="288" y="192">writes out what's said</text><text x="288" y="214">and reads the screen.</text>
+    <!-- 3 -->
+    <rect x="508" y="40" width="208" height="220" rx="18" fill="#FFFFFF" stroke="#E5DFD4"/>
+    <circle cx="548" cy="84" r="24" fill="#F6E3D9"/>
+    <path d="M545 87a6 6 0 0 0 8.5 0l6-6a6 6 0 0 0-8.5-8.5l-2 2M551 81a6 6 0 0 0-8.5 0l-6 6a6 6 0 0 0 8.5 8.5l2-2" fill="none" stroke="#B8441A" stroke-width="2.6" stroke-linecap="round"/>
+    <text x="528" y="142" font-size="19" font-weight="700" fill="#1E1C19">Follow</text>
+    <text x="528" y="170">It opens the creator's</text><text x="528" y="192">recipe page, when the</text><text x="528" y="214">caption links one.</text>
+    <!-- 4 -->
+    <rect x="748" y="40" width="208" height="220" rx="18" fill="#FFFFFF" stroke="#E5DFD4"/>
+    <circle cx="788" cy="84" r="24" fill="#F6E3D9"/>
+    <path d="M778 94l4-1 13-13-3-3-13 13zM790 77l3 3" fill="none" stroke="#B8441A" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="768" y="142" font-size="19" font-weight="700" fill="#1E1C19">Write</text>
+    <text x="768" y="170">Claude writes the</text><text x="768" y="192">recipe from ONLY what</text><text x="768" y="214">the reel gives.</text>
+    <!-- 5 -->
+    <rect x="988" y="40" width="224" height="220" rx="18" fill="#B8441A"/>
+    <circle cx="1028" cy="84" r="24" fill="#FFF6EF"/>
+    <path d="M1016 82h24v4a10 10 0 0 1-10 10h-4a10 10 0 0 1-10-10zM1012 82h32M1023 72c0 2 2 2 2 5M1031 72c0 2 2 2 2 5" fill="none" stroke="#B8441A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="1008" y="142" font-size="19" font-weight="700" fill="#FFFFFF">Cook</text>
+    <text x="1008" y="170" fill="#FFF1E8">A page to cook from,</text><text x="1008" y="192" fill="#FFF1E8">and a note in your</text><text x="1008" y="214" fill="#FFF1E8">Obsidian vault.</text>
+  </g>
+</svg>
