@@ -46,7 +46,15 @@ def sheets(video, folder):
     return result
 
 
+def has_sound(video):
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", str(video)],
+                       capture_output=True, text=True, timeout=60)
+    return bool(r.stdout.strip())
+
+
 def transcript(video):
+    if not has_sound(video):                     # some reels are silent: nothing to write out
+        return {"language": None, "segments": []}
     r = subprocess.run(config.WHISPER + [str(video)], capture_output=True, text=True, timeout=3600)
     try:
         out = json.loads(r.stdout.strip().splitlines()[-1])
