@@ -98,10 +98,18 @@
     if (!ME || force) ME = await getJSON("api/me");
     if (!LIST || force) LIST = await getJSON("api/recipes");
   }
+  // a recipe in the language picked for it on this visit (the account's default otherwise)
+  const langChoice = {};
+  const key = (code) => code + "|" + (langChoice[code] || "");
+  const cur = (code) => FULL[key(code)];
   async function loadOne(code) {
-    if (!FULL[code]) FULL[code] = await getJSON("api/r/" + encodeURIComponent(code));
-    return FULL[code];
+    const k = key(code);
+    if (!FULL[k]) FULL[k] = await getJSON("api/r/" + encodeURIComponent(code) + (langChoice[code] ? "?lang=" + langChoice[code] : ""));
+    return FULL[k];
   }
+  // what a card shows: the English title of a Hebrew recipe for an account that reads them in English
+  const english = () => ME && ME.memory.settings.english;
+  const shown = (r) => (english() && r.title_en ? { title: r.title_en, lang: "en" } : { title: r.title, lang: r.lang });
   const M = () => ME.memory;
   const nameOf = (id) => (ME.names && ME.names[id]) || id;
   const isOwner = () => ME.account && ME.account.admin;
@@ -269,7 +277,7 @@
   /* ---------- home ---------- */
   const recipesOnly = () => LIST.recipes.filter((r) => r.is_recipe !== false);
   const byCode = (c) => LIST.recipes.find((r) => r.code === c);
-  function haystack(r) { return norm([r.title, r.user, r.cuisine, r.kind, nameOf(r.added_by), (r.tags || []).join(" "), (r.items || []).join(" ")].join(" ")); }
+  function haystack(r) { return norm([r.title, r.title_en, r.user, r.cuisine, r.kind, nameOf(r.added_by), (r.tags || []).join(" "), (r.items || []).join(" "), (r.items_en || []).join(" ")].join(" ")); }
   function visible() {
     const words = norm(query).split(" ").filter(Boolean);
     return recipesOnly()
@@ -281,7 +289,7 @@
     return `<li><a class="card" href="#/r/${esc(r.code)}">
       <div class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}${r.complete ? "" : `<span class="flag">${r.lang === "he" ? "חסרות כמויות" : "Missing amounts"}</span>`}
         ${saved || made || rating ? `<span class="marks">${saved ? `<span>${I.markOn}</span>` : ""}${made ? `<span>${I.done}</span>` : ""}${rating ? `<span class="r">${rating}</span>` : ""}</span>` : ""}</div>
-      <div class="txt"${dirOf(r)}><div class="t">${esc(r.title)}</div><div class="by" dir="ltr">@${esc(r.user)}</div></div></a></li>`;
+      <div class="txt"${dirOf(shown(r))}><div class="t">${esc(shown(r).title)}</div><div class="by" dir="ltr">@${esc(r.user)}</div></div></a></li>`;
   }
   function gridHTML() {
     const list = visible();
@@ -302,7 +310,7 @@
     if (!items.length) return "";
     return `<section class="next" aria-label="Up next"><h2>Up next</h2><ul class="next-row">${items.map(([s, r]) => `<li><a class="mini" href="#/r/${esc(r.code)}">
       <span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
-      <span class="why">${esc((WHY[s.why] || WHY.new)(s.about))}</span><span class="t"${dirOf(r)}>${esc(r.title)}</span></a></li>`).join("")}</ul></section>`;
+      <span class="why">${esc((WHY[s.why] || WHY.new)(s.about))}</span><span class="t"${dirOf(shown(r))}>${esc(shown(r).title)}</span></a></li>`).join("")}</ul></section>`;
   }
   function home() {
     const notes = [];
@@ -375,6 +383,7 @@
     const others = Object.keys(ME.names || {}).length > 1;
     return `<div class="wrap"${dirOf(r)}>
       <div class="bar"><a class="btn btn-icon" href="#/" aria-label="Back">${I.back}</a><span class="grow"></span>
+        ${(r.langs || []).length > 1 ? `<button type="button" class="btn lang" data-action="lang" data-to="${r.lang === "he" ? "en" : "he"}" lang="${r.lang === "he" ? "en" : "he"}">${r.lang === "he" ? "English" : "עברית"}</button>` : ""}
         ${canSpeak && steps.length ? `<button type="button" class="btn" data-action="read" aria-pressed="${reading}">${reading ? I.stop + esc(l.stopRead) : I.speak + esc(l.read)}</button>` : ""}
         <button type="button" class="btn btn-icon save${saved ? " on" : ""}" data-action="save" aria-pressed="${saved}" aria-label="Save">${saved ? I.markOn : I.mark}</button></div>
       <article class="recipe">
@@ -469,7 +478,7 @@
   /* ---------- history ---------- */
   function rowHTML(r, right) {
     return `<li><a class="hrow" href="#/r/${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
-      <span class="t"${dirOf(r)}>${esc(r.title)}</span>${right || ""}</a></li>`;
+      <span class="t"${dirOf(shown(r))}>${esc(shown(r).title)}</span>${right || ""}</a></li>`;
   }
   async function historyPage(tab) {
     const h = await getJSON("api/history");
@@ -518,7 +527,8 @@
         <form data-form="password" id="password" class="stack"><h3>Password</h3>${field("old", "Current password", "", "password", 'autocomplete="current-password"')}${field("new", "New password", "", "password", 'autocomplete="new-password" minlength="8"')}<button class="btn" type="submit">Change password</button></form>
         <button type="button" class="btn" data-action="signout">Sign out</button></section>
       <section class="sec set"><h2>Display</h2>
-        <button type="button" class="switch" role="switch" aria-checked="${s.settings.nutrition}" data-action="nutrition"><span>Calories and protein</span><span class="track"><span class="knob"></span></span></button></section>
+        <button type="button" class="switch" role="switch" aria-checked="${s.settings.nutrition}" data-action="nutrition"><span>Calories and protein</span><span class="track"><span class="knob"></span></span></button>
+        <button type="button" class="switch" role="switch" aria-checked="${!!s.settings.english}" data-action="english"><span>Hebrew recipes in English</span><span class="track"><span class="knob"></span></span></button></section>
       <section class="sec set"><h2>Instagram</h2>
         <p class="status">${esc(status)}${ig.collection_id ? ` · ${esc(ig.collection_name || "Collection " + ig.collection_id)}` : ""}</p>
         ${ig.connected ? `<div class="row"><button type="button" class="btn" data-action="scan"${scan.running ? " disabled" : ""}>${scan.running ? "Looking…" : "Find my collections"}</button>${ig.shared ? "" : `<button type="button" class="btn" data-action="disconnect">Disconnect</button>`}</div>` : ""}
@@ -628,7 +638,8 @@
     if (!b) return;
     const act = b.dataset.action;
     const [page, code, n] = route();
-    const r = FULL[code];
+    const r = cur(code);
+    if (act === "lang") { langChoice[code] = b.dataset.to; render(true); return; }
     if (act === "kind") { kind = b.dataset.kind; document.querySelector(".kinds").innerHTML = kindsHTML(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); }
     else if (act === "clear") { query = ""; const q = document.getElementById("q"); q.value = ""; q.focus(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); b.hidden = true; }
     else if (act === "play") { playing = code; render(true); }
@@ -660,6 +671,7 @@
     else if (act === "timer-stop") stopTimer();
     else if (act === "sheet" && r) openSheet(r);
     else if (act === "signout") { await post("api/signout").catch(() => {}); signInPage(); }
+    else if (act === "english") { const on = b.getAttribute("aria-checked") !== "true"; if (await setting("english", { value: on })) { b.setAttribute("aria-checked", on); Object.keys(FULL).forEach((c) => delete FULL[c]); Object.keys(langChoice).forEach((c) => delete langChoice[c]); ME.memory.settings.english = on; } }
     else if (act === "nutrition") { const on = b.getAttribute("aria-checked") !== "true"; if (await setting("nutrition", { value: on })) { b.setAttribute("aria-checked", on); Object.keys(FULL).forEach((c) => delete FULL[c]); } }
     else if (act === "scan") { if (await setting("instagram-scan", {})) { render(true); pollScan(); } }
     else if (act === "disconnect") { if (await setting("instagram-disconnect", {})) { ME = null; render(true); } }
@@ -740,7 +752,7 @@
     const [page, code, n] = route();
     if (page !== "cook" || n === "done") return;
     const k = parseInt(n, 10) || 1;
-    const r = FULL[code];
+    const r = cur(code);
     const rtl = r && r.lang === "he";
     const fwd = rtl ? "ArrowLeft" : "ArrowRight", bwd = rtl ? "ArrowRight" : "ArrowLeft";
     if ((e.key === fwd || e.key === " ") && r && k < r.steps.length) { e.preventDefault(); location.hash = `#/cook/${code}/${k + 1}`; }

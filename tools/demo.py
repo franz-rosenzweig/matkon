@@ -153,6 +153,21 @@ RECIPES = [
 ]
 
 
+SHAKSHUKA_EN = dict(lang="en", translated_from="he", title="Shakshuka",
+    summary="Eggs cooked in a sweet-and-spicy tomato and pepper sauce, all in one pan.", kind="Breakfast", cuisine="Israeli",
+    tags=["breakfast", "one pan"], servings="4", time={"prep": "", "cook": "", "total": "35 minutes"}, oven="",
+    ingredient_groups=[g("", ("2 tbsp", "olive oil", ""), ("1", "onion", "chopped"), ("1", "red pepper", "chopped"), ("3 cloves", "garlic", "sliced"),
+                         ("1 tsp", "sweet paprika", ""), ("1 tsp", "cumin", ""), ("1 can (800g)", "crushed tomatoes", ""),
+                         ("1 tsp", "sugar", ""), ("to taste", "salt and pepper", ""), ("6", "eggs", ""), ("a handful", "parsley", "chopped"))],
+    steps=[s("Heat the oil in a wide pan and fry the onion and pepper until soft, about 8 minutes.", 8),
+           s("Add the garlic, paprika and cumin and stir for a minute."),
+           s("Add the tomatoes and sugar, season, and simmer over medium heat until the sauce thickens, about 15 minutes.", 15),
+           s("Make six wells in the sauce and crack an egg into each one."),
+           s("Cover and cook for 6 to 8 minutes, until the whites are set and the yolks still soft.", 6, 8),
+           s("Scatter the parsley over it and serve with fresh bread.")],
+    tips=["If the sauce gets too thick before the eggs go in, add a little water."], nutrition={}, missing=[])
+
+
 def build(state):
     reels = state / "reels"
     reels.mkdir(parents=True)
@@ -174,6 +189,8 @@ def build(state):
                "photo": "photo.jpg", "photo_at": 1.0}
         rec.update({k: v for k, v in r.items() if k not in ("code", "user", "photo", "missing", "complete", "crop_x")})
         (f / "post.json").write_text(json.dumps(post, ensure_ascii=False))
+        if r["code"] == "demo-shakshuka":
+            (f / "recipe.en.json").write_text(json.dumps(SHAKSHUKA_EN, ensure_ascii=False))
         (f / "recipe.json").write_text(json.dumps(rec, ensure_ascii=False))
 
 

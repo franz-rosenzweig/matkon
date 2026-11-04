@@ -41,7 +41,7 @@ Matkon does the boring part. It watches the reel, writes out what's said, reads 
 - **Accounts.** One kitchen for the whole house: everyone signs in with their own account and keeps their own memory, history and suggestions, and anyone can connect their own Instagram collection to add to it. Each account can also turn calories and protein off.
 - **Invites by email.** There's no open sign-up. The owner types someone's email in Settings, Matkon emails them a code, and they open the link (or tap "I have a code") and pick a username and password. Accounts with an email can sign in with it and get a code when they forget their password.
 - **Settings in the app.** Connect Instagram and pick the collection, add a single reel by its link, and (for the owner) the kitchen's settings and the accounts.
-- **Hebrew too.** Hebrew reels stay in Hebrew, with Hebrew labels, right to left. Reels in any other language come out in English.
+- **Hebrew too, and in English.** Hebrew reels stay in Hebrew, with Hebrew labels, right to left, and each one also gets an English version, so one tap switches between them (ticked ingredients, notes and your place in the steps carry over). Anyone who'd rather read them in English can turn that on in Settings. Reels in any other language come out in English.
 - **Obsidian notes.** Every recipe can also be a note with proper front matter, so a Bases view of your recipes lists it. Once you edit a note, it's yours, and Matkon never writes over it.
 - **Phone, tablet and computer,** in light and dark mode.
 
@@ -82,7 +82,8 @@ For each new reel in the collection, Matkon:
 3. takes a frame every second and a half, four to a sheet, so the words on screen can be read,
 4. reads the creator's recipe page when the caption links one, taking the page's own recipe data when it has some,
 5. hands all of it to Claude through Claude Code, with no tools at all, in one message, and gets the recipe back as JSON,
-6. cuts a still of the finished dish for the photo, and writes the Obsidian note.
+6. cuts a still of the finished dish for the photo, and writes the Obsidian note,
+7. and when the recipe is in Hebrew, has Claude make the English version, checked to have the same ingredients and steps in the same order.
 
 Every step leaves its file in the reel's folder, so a run that stops halfway picks up where it left off, and `redo` makes any step again.
 
@@ -128,7 +129,7 @@ After that, run `python3 run.py sync` every hour or so (cron is fine). It looks 
 | `collection <id> [name]` | sets which collection to read |
 | `sync [--full] [--limit N]` | reads the collection and works through new reels |
 | `add <reel link>` | one reel, even one that isn't in the collection |
-| `redo <code> [--from STAGE]` | makes it again from `video`, `transcript`, `frames`, `link`, `recipe` or `note` |
+| `redo <code> [--from STAGE]` | makes it again from `video`, `transcript`, `frames`, `link`, `recipe`, `note` or `translate` |
 | `status` | what's where |
 | `password [account]` | sets a new password (the owner's by default) |
 | `serve` | the app |

@@ -312,3 +312,4 @@ img, video { display: block; max-width: 100%; }
 .invite-code { display: grid; gap: 4px; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); }
 .invite-code b { font-size: 22px; letter-spacing: .08em; }
 .invite-code .cap { font-size: 13px; color: var(--muted); word-break: break-all; }
+.btn.lang { font-weight: 700; }

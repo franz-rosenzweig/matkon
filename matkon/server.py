@@ -52,12 +52,17 @@ def _photo(code, r):
     return f"m/{code}/{name}?v={int((f / name).stat().st_mtime)}"
 
 
-def recipe_full(code):
+def recipe_full(code, lang=None):
+    """The recipe, in `lang` when there's a version in it (recipe.<lang>.json), else as it was written."""
     f = config.REELS / code
     r, p = _read(f / "recipe.json"), _read(f / "post.json")
     if not r or not p:
         return None
-    return {**r, "code": code, "user": p.get("user", ""), "name": p.get("name", ""), "reel": p.get("url"),
+    orig = r.get("lang", "en")
+    langs = [orig] + [x for x in ("en", "he") if x != orig and (f / f"recipe.{x}.json").exists()]
+    if lang and lang != orig and lang in langs:
+        r = {**r, **(_read(f / f"recipe.{lang}.json") or {})}
+    return {**r, "code": code, "langs": langs, "original_lang": orig, "user": p.get("user", ""), "name": p.get("name", ""), "reel": p.get("url"),
             "found": p.get("found", 0), "added_by": p.get("added_by") or accounts.owner(), "photo": _photo(code, r),
             "video": f"m/{code}/video.mp4" if (f / "video.mp4").exists() else None}
 
@@ -71,9 +76,11 @@ def index():
         if not r:
             waiting += (f / "post.json").exists()
             continue
+        en = _read(f / "recipe.en.json") if r.get("lang") != "en" else None
         out.append({k: r.get(k) for k in ("code", "title", "summary", "kind", "lang", "user", "tags", "cuisine", "complete",
                                           "is_recipe", "found", "photo", "time", "servings", "main_ingredients", "added_by")}
-                   | {"items": [i["item"] for g in r.get("ingredient_groups", []) for i in g["items"]]})
+                   | {"items": [i["item"] for g in r.get("ingredient_groups", []) for i in g["items"]]}
+                   | ({"title_en": en.get("title"), "items_en": [i["item"] for g in en.get("ingredient_groups", []) for i in g["items"]]} if en else {}))
     out.sort(key=lambda x: -(x.get("found") or 0))
     return {"recipes": out, "waiting": waiting}
 
@@ -234,10 +241,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(out)
         m = re.match(r"^/api/r/([\w-]+)$", path)
         if m:
-            r = recipe_full(m.group(1)) if CODE.match(m.group(1)) else None
+            settings = memory.view(aid)["settings"]
+            want = (urllib.parse.parse_qs(self.path.split("?", 1)[1]).get("lang", [None])[0] if "?" in self.path else None)
+            r = recipe_full(m.group(1), want or ("en" if settings.get("english") else None)) if CODE.match(m.group(1)) else None
             if not r:
                 return self._error(404, "not here")
-            if not memory.view(aid)["settings"].get("nutrition", True):
+            if not settings.get("nutrition", True):
                 r["nutrition"] = {}                       # this account doesn't see the numbers
             return self._json(r)
         m = re.match(r"^/m/([\w-]+)/([\w.]+)$", path)
@@ -385,8 +394,8 @@ The code works for 7 days.
             if not accounts.check(aid, b.get("old")):
                 raise ValueError("The current password isn't right.")
             accounts.update(aid, password=b.get("new"))
-        elif op == "nutrition":
-            memory.apply(aid, "setting", {"key": "nutrition", "value": b.get("value")})
+        elif op in ("nutrition", "english"):
+            memory.apply(aid, "setting", {"key": op, "value": b.get("value")})
         elif op == "instagram-cookies":
             kitchen.set_cookies(aid, b.get("text") or "")
         elif op == "instagram-disconnect":

@@ -9,6 +9,7 @@ The notes I want when I come back to this later.
 - `matkon/reel.py` handles the frames (one every 1.5 s, 32 at most, four to a 2×2 sheet at 432 px), the transcript (`tools/whisper_segments.py`, run with `MATKON_PY`) and the dish photo.
 - `matkon/linked.py` fetches the caption's link once, as itself (no disguise). It keeps the page's schema.org Recipe when there is one, and the page's text when there isn't. A Substack front page gets an archive search for the dish.
 - `matkon/recipe.py` holds the prompt and the call: `claude --print` with `--tools ""`, the frames sent inline in one stream-json message, and the answer cleaned into a fixed shape. Claude's raw answer is kept as `answer.txt`.
+- `matkon/translate.py` makes the English version of a Hebrew recipe (`recipe.en.json`), the last stage of a reel's run, so a hiccup there never holds up the recipe or the note. Claude gets the recipe JSON and gives back the same JSON in English; the timers are put back from the original, and anything whose groups, items, steps, tips or "missing" lines don't line up is thrown away and tried again. The server serves either language (`api/r/<code>?lang=en`), the account's "Hebrew recipes in English" switch picks the default, and the list carries `title_en` and `items_en` for cards and search.
 - `matkon/vault.py` writes the note. It compares only the BODY to what Matkon wrote last (`vault-note.json`), because Obsidian's plugins rewrite front matter on their own.
 - `matkon/accounts.py` holds the accounts (scrypt hashes in `accounts.json`, 600) and the signed cookie, which carries an epoch so a new password signs that account out everywhere. It also keeps the one-time codes (`codes.json`, 600, hashes only): an invite for 7 days, a password reset or an email check for 15 minutes, 8 wrong tries each. Joining checks the username and password before it uses up the invite.
 - `matkon/mail.py` sends the invites and codes over SMTP with STARTTLS (`mail.json`; `MATKON_MAIL=outbox` writes them to `outbox.jsonl` instead, for tests). "Forgot password" answers the same whether or not the email has an account.
@@ -19,7 +20,7 @@ The notes I want when I come back to this later.
 
 ## A reel's folder
 
-`<state>/reels/<code>/` holds `post.json`, `cover.jpg`, `video.mp4`, `transcript.json`, `sheets/` + `sheets.json`, `linked.json`, `answer.txt`, `recipe.json`, `photo.jpg`, `note.json` (the stage marker), `vault-note.json` (what was written, for the edit check) and `status.json`. A run does whatever stages are missing, so deleting a file redoes that stage. A reel that fails 3 times waits until `redo`.
+`<state>/reels/<code>/` holds `post.json`, `cover.jpg`, `video.mp4`, `transcript.json`, `sheets/` + `sheets.json`, `linked.json`, `answer.txt`, `recipe.json`, `photo.jpg`, `note.json` (the stage marker), `vault-note.json` (what was written, for the edit check), `recipe.en.json` + `translated.json` (the English version, and its stage marker) and `status.json`. A run does whatever stages are missing, so deleting a file redoes that stage. A reel that fails 3 times waits until `redo`.
 
 ## Two traps
 

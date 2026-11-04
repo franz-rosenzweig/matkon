@@ -17,7 +17,7 @@ from . import config
 FRESH = 12 * 3600          # ticks and the cooking step last this long
 VIEWED = 60
 _lock = threading.Lock()
-DEFAULT_SETTINGS = {"nutrition": True}
+DEFAULT_SETTINGS = {"nutrition": True, "english": False}
 
 
 def folder(aid):

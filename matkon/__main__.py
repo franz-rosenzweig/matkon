@@ -4,13 +4,13 @@
   python3 run.py collection ID [NAME]        read that one
   python3 run.py sync [--full] [--limit N]   read the collection, work through new reels
   python3 run.py add URL|CODE                one reel, even one outside the collection
-  python3 run.py redo CODE [--from STAGE]    again from: video, transcript, frames, link, recipe, note
+  python3 run.py redo CODE [--from STAGE]    again from: video, transcript, frames, link, recipe, note, translate
   python3 run.py status                      what's where
   python3 run.py password [ACCOUNT]          a new password (the owner's by default)
   python3 run.py serve                       the app (server.py)
 
 Each reel goes through the stages in order (post → video → transcript → frames → link → recipe →
-note), and each stage leaves its file in reels/<code>/, so a run picks up where the last one stopped.
+note → translate), and each stage leaves its file in reels/<code>/, so a run picks up where the last one stopped.
 """
 import argparse
 import collections
@@ -24,10 +24,10 @@ import sys
 import time
 from pathlib import Path
 
-from . import accounts, config, instagram, kitchen, linked, memory, reel, recipe, vault
+from . import accounts, config, instagram, kitchen, linked, memory, reel, recipe, translate, vault
 
-STAGES = ["video", "transcript", "frames", "link", "recipe", "note"]
-FILES = {"video": "video.mp4", "transcript": "transcript.json", "frames": "sheets.json", "link": "linked.json", "recipe": "recipe.json", "note": "note.json"}
+STAGES = ["video", "transcript", "frames", "link", "recipe", "note", "translate"]
+FILES = {"video": "video.mp4", "transcript": "transcript.json", "frames": "sheets.json", "link": "linked.json", "recipe": "recipe.json", "note": "note.json", "translate": "translated.json"}
 MAX_TRIES = 3
 
 
@@ -148,7 +148,18 @@ def stage_note(f, post, notes):
     _write(f / "note.json", {"path": str(path) if path else None, "at": int(time.time())})
 
 
-RUN = {"video": stage_video, "transcript": stage_transcript, "frames": stage_frames, "link": stage_link, "recipe": stage_recipe}
+def stage_translate(f, post):
+    """Hebrew recipes get an English version (recipe.en.json); the others only the marker."""
+    r = _read(f / "recipe.json", {})
+    done = {}
+    if r.get("is_recipe") and r.get("lang") == "he":
+        _write(f / "recipe.en.json", translate.to_english(r, config.model()))
+        done["en"] = True
+    _write(f / "translated.json", done)
+
+
+RUN = {"video": stage_video, "transcript": stage_transcript, "frames": stage_frames, "link": stage_link, "recipe": stage_recipe,
+       "translate": stage_translate}
 
 
 def work(code, notes, force_from=None):
@@ -159,6 +170,8 @@ def work(code, notes, force_from=None):
         return False
     if force_from:
         for s in STAGES[STAGES.index(force_from):]:
+            if s == "translate":
+                (f / "recipe.en.json").unlink(missing_ok=True)
             if s != "video":
                 (f / FILES[s]).unlink(missing_ok=True)
             elif (f / "video.mp4").exists():
@@ -188,7 +201,7 @@ def pending():
     """Reels not finished yet and not given up on, oldest found first."""
     out = []
     for f in config.REELS.iterdir() if config.REELS.exists() else []:
-        if not (f / "post.json").exists() or (f / "note.json").exists():
+        if not (f / "post.json").exists() or all((f / FILES[s]).exists() for s in STAGES):
             continue
         st = status_of(f)
         if st.get("tries", 0) >= MAX_TRIES:
