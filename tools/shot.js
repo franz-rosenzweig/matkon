@@ -2,7 +2,7 @@
 'use strict';
 // Screenshots of Matkon in a headless Chrome with remote debugging on, one fresh browser context per
 // shot.   DEVTOOLS=host:port (default 127.0.0.1:9222), or CHROME=<docker container> to find it.
-//   node tools/shot.js <app url as Chrome sees it> <out dir> name:WxH[:dark][:full][:click=sel]:#/route ...
+//   node tools/shot.js <app url as Chrome sees it> <out dir> name:WxH[:dark][:full][:clear][:click=sel]:#/route ...
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -42,6 +42,7 @@ function cdp(method, params = {}, sessionId) {
     await s('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: width < 1000 });
     await s('Emulation.setTouchEmulationEnabled', { enabled: width < 1400, maxTouchPoints: 5 });
     await s('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: rest.includes('dark') ? 'dark' : 'light' }] });
+    if (rest.includes('clear')) await s('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } });   // a transparent background (icons)
     await s('Page.navigate', { url: APP + route });
     await sleep(2500);
     if (click) { await s('Runtime.evaluate', { expression: `document.querySelector(${JSON.stringify(click)})?.click()` }); await sleep(1200); }
