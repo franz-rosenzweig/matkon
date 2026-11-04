@@ -4,7 +4,7 @@ screens get a device frame and a soft shadow, and the hero puts a tablet between
 
   python3 tools/readme_images.py <shots dir>      needs Pillow
 The shots it expects: home, ramen, cook, cook-dark, he, he-cook, home-tab, cookies-tab, missing (full),
-cookies-full (full), history, imported, cookdone, settings (full).
+cookies-full (full), history, imported, cookdone, settings (full), and for docs/: signin, join, he-en.
 """
 import shutil
 import sys
@@ -132,6 +132,13 @@ def main():
     m = m.crop((0, 1580, m.width, min(m.height, 3880)))
     card, _ = shadowed(rounded(m, 40), blur=26, offset=(0, 14), alpha=55)
     save(card, "missing.png", 700)
+
+    # single phones for the guide pages in docs/
+    for name, out in [("signin", "signin.png"), ("join", "join.png"), ("cook", "cook.png"), ("he-en", "english.png"),
+                      ("settings", "settings.png"), ("history", "history.png"), ("home", "home.png")]:
+        if (shots / f"{name}.png").exists():
+            p, _ = shadowed(phone(shots / f"{name}.png", 1200), blur=30, offset=(0, 16), alpha=60)
+            save(p, out, 520)
 
     shutil.copyfile(ROOT / "app" / "icon-512.png", OUT / "icon.png")
     print("icon.png")

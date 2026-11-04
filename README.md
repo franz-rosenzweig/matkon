@@ -17,7 +17,7 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#setting-it-up">Setting it up</a> ·
   <a href="#settings">Settings</a> ·
-  <a href="docs/DEVELOPING.md">Developing</a>
+  <a href="docs/README.md"><b>Docs</b></a>
 </p>
 
 <img src="docs/images/hero.png" alt="Matkon on a phone, a tablet and a phone in dark mode: the home page with recipe cards, a recipe for brown butter chocolate chip cookies with its ingredients and steps, and cooking mode on the first step of a miso ramen">
@@ -170,6 +170,10 @@ Under the hood there are two small files. **`matkon.env`**, for where things are
 - The pages hold other people's videos and recipes, so keep the kitchen to your own people. Everything but the sign-in page needs an account, and if you open it to the internet, do it over HTTPS (a Cloudflare Tunnel works well), so the sign-in cookie stays secure.
 - Your notes, ratings and what you cooked go into the owner's Obsidian notes too (front matter `rating`, `cooked`, `last`, and the Notes heading), as long as you haven't rewritten the note yourself.
 - The creators did the cooking. Every page links back to the reel and to the creator's own recipe page.
+
+## Docs
+
+The full guide is in [docs/](docs/README.md), and on the web at [docs.tiresia.xyz/matkon](https://docs.tiresia.xyz/matkon/): [what Matkon is](docs/what-is-matkon.md), [accounts and invites](docs/accounts-and-invites.md), [recipes](docs/recipes.md), [cooking](docs/cooking.md), [memory and history](docs/memory-and-history.md), [settings](docs/settings.md), [from reel to recipe](docs/how-it-works.md), [Obsidian notes](docs/obsidian-notes.md), and [developing it](docs/DEVELOPING.md).
 
 ## License
 
