@@ -387,17 +387,17 @@
         ${canSpeak && steps.length ? `<button type="button" class="btn" data-action="read" aria-pressed="${reading}">${reading ? I.stop + esc(l.stopRead) : I.speak + esc(l.read)}</button>` : ""}
         <button type="button" class="btn btn-icon save${saved ? " on" : ""}" data-action="save" aria-pressed="${saved}" aria-label="Save">${saved ? I.markOn : I.mark}</button></div>
       <article class="recipe">
-        <div>${mediaHTML(r, l, playing === r.code)}
+        <div class="pic-col">${mediaHTML(r, l, playing === r.code)}
           ${"wakeLock" in navigator ? `<button type="button" class="switch" role="switch" aria-checked="${awake}" data-action="awake"><span>${esc(l.awake)}</span><span class="track"><span class="knob"></span></span></button>` : ""}</div>
-        <div>
+        <div class="body">
           <header class="head">
             <h1 tabindex="-1">${esc(r.title)}</h1>
             ${r.summary ? `<p class="sum">${esc(r.summary)}</p>` : ""}
             <div class="by" dir="ltr"><a href="${esc(r.reel)}" target="_blank" rel="noopener">@${esc(r.user)}</a>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(l.page)}</a>` : ""}${others && r.added_by ? `<span>${esc(l.addedBy(nameOf(r.added_by)))}</span>` : ""}</div>
             ${factsHTML(r, l)}
+            ${r.is_recipe !== false && steps.length ? `<div class="actions"><a class="btn btn-accent btn-big" href="#/cook/${esc(r.code)}/${at || 1}">${I.cook}${esc(at ? l.cont(at) : l.start)}</a></div>` : ""}
           </header>
           ${r.is_recipe === false ? `<p class="empty">${esc(l.notRecipe)}</p>` : `
-          ${steps.length ? `<div class="actions"><a class="btn btn-accent btn-big" href="#/cook/${esc(r.code)}/${at || 1}">${I.cook}${esc(at ? l.cont(at) : l.start)}</a></div>` : ""}
           <div class="two">
             ${r.ingredient_groups.length ? `<section class="sec"><h2>${esc(l.ing)}</h2>${ingredientsHTML(r, l)}</section>` : ""}
             ${steps.length ? `<section class="sec"><h2>${esc(l.steps)}</h2><ol class="steps">${steps.map((s, i) => `<li><div class="step"><span class="n">${i + 1}</span><div>${esc(s.text)}${timerChips(r, s, l)}</div></div></li>`).join("")}</ol></section>` : ""}
@@ -451,9 +451,11 @@
       <div class="count">${esc(l.step(k, steps.length))}</div>
       <div class="body" aria-live="polite">
         <p class="said" tabindex="-1">${esc(s.text)}</p>
+        <div class="side">
         ${uses.length ? `<div class="uses"><span class="lbl">${esc(l.uses)}</span><ul>${uses.map((i) => `<li><b>${esc(i.amount)}</b> ${esc(i.item)}</li>`).join("")}</ul></div>` : ""}
         <div class="tools">${timerChips(r, s, l).replace(/class="chip"/g, 'class="btn"').replace('<div class="chips">', "").replace(/<\/div>$/, "")}
           ${canSpeak ? `<button type="button" class="btn" data-action="read-step" data-i="${k - 1}">${I.speak}${esc(l.read)}</button>` : ""}</div>
+        </div>
       </div>
       <div class="nav">
         <a class="btn" href="${k === 1 ? `#/r/${esc(r.code)}` : `#/cook/${esc(r.code)}/${k - 1}`}">${esc(l.backStep)}</a>
@@ -513,7 +515,7 @@
     const s = await getJSON("api/settings");
     const ig = s.instagram;
     const scan = ig.scan || {};
-    const status = !ig.connected ? "Not connected" : ig.signed_out ? "Sign-in lapsed" : ig.shared ? "Connected · shared sign-in" : "Connected";
+    const status = (!ig.connected ? "Not connected" : ig.signed_out ? "Sign-in lapsed" : ig.shared ? "Connected · shared sign-in" : "Connected") + (ig.paused ? " · Paused" : "");
     const cols = scan.collections ? `<ul class="cols">${scan.collections.map((c) => `<li><button type="button" class="col${String(c.id) === String(ig.collection_id) ? " on" : ""}" data-action="pick-col" data-id="${esc(c.id)}">
         <span class="t">${esc(c.count)} saved</span>${c.captions.map((t) => `<span class="cap">${esc(t)}</span>`).join("")}</button></li>`).join("")}</ul>` : "";
     const k = s.kitchen;
@@ -540,7 +542,8 @@
       <section class="sec set"><h2>Add a reel</h2>
         <form data-form="add" class="row">${field("url", "Reel link", "", "url")}<button class="btn" type="submit">Add</button></form></section>
       ${k ? `<section class="sec set"><h2>Kitchen</h2>
-        <div class="row"><button type="button" class="btn" data-action="sync">Check now</button></div>
+        <button type="button" class="switch" role="switch" aria-checked="${!k.paused}" data-action="pause"><span>Check Instagram</span><span class="track"><span class="knob"></span></span></button>
+        <div class="row"><button type="button" class="btn" data-action="sync"${k.paused ? " disabled" : ""}>Check now</button></div>
         <form data-form="kitchen" class="stack">
           ${field("scan_pages", "Pages each hour", k.scan_pages, "number", 'min="1" max="50"')}
           ${field("full_every_hours", "Every save, every (hours)", k.full_every_hours, "number", 'min="0" max="10000"')}
@@ -677,6 +680,7 @@
     else if (act === "disconnect") { if (await setting("instagram-disconnect", {})) { ME = null; render(true); } }
     else if (act === "pick-col") { if (await setting("instagram-collection", { id: b.dataset.id, name: "Recipes" }, "Saved")) render(true); }
     else if (act === "sync") setting("sync", {}, "Checking");
+    else if (act === "pause") { const on = b.getAttribute("aria-checked") === "true"; if (await setting("pause", { value: on }, on ? "Paused" : "Checking Instagram again")) render(true); }
     else if (act === "mode") signInPage("", b.dataset.mode);
     else if (act === "invite-cancel") { if (await setting("invite-cancel", { email: b.dataset.email }, "Invite cancelled")) render(true); }
     else if (act === "email-set") {

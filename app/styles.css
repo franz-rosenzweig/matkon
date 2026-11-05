@@ -36,7 +36,8 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+a, button, input, textarea, label { touch-action: manipulation; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font: 17px/1.5 var(--font);
@@ -51,7 +52,7 @@ img, video { display: block; max-width: 100%; }
 [dir="rtl"] .flip { transform: scaleX(-1); }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 
-.wrap { max-width: 1180px; margin: 0 auto; padding: 16px 16px 48px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 16px 16px calc(48px + env(safe-area-inset-bottom)); }
 
 /* ---------- buttons, chips ---------- */
 .btn {
@@ -93,7 +94,7 @@ img, video { display: block; max-width: 100%; }
 .kinds { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 14px; margin: 0 -16px; padding-inline: 16px; scrollbar-width: none; }
 .kinds::-webkit-scrollbar { display: none; }
 .kinds button {
-  flex: none; min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
+  flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
   background: var(--card); font-size: 15px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .kinds button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
@@ -117,14 +118,39 @@ img, video { display: block; max-width: 100%; }
 /* ---------- recipe ---------- */
 .bar { display: flex; align-items: center; gap: 8px; padding: 8px 0 12px; }
 .bar .grow { flex: 1; }
-.recipe { display: grid; gap: 20px; }
-@media (min-width: 820px) {
-  .recipe { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 32px; align-items: start; }
-  .media { position: sticky; top: 16px; }
-}
+/* Phones: one column, a short photo so the title and Start show on the first screen.
+   Tablets held upright: the photo beside the title, then ingredients and steps side by side.
+   Landscape (tablets, computers, phones on their side): the photo stays put on the left. */
+.recipe { display: grid; gap: 16px; }
 .media { border-radius: var(--r); overflow: hidden; background: #000; position: relative; }
-.media img, .media video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; background: #000; }
-@media (max-width: 819px) { .media img { aspect-ratio: 4 / 5; } .media video { aspect-ratio: 9 / 16; max-height: 78vh; object-fit: contain; } }
+.media img, .media video { width: 100%; object-fit: cover; background: #000; }
+.media img { aspect-ratio: 4 / 3; max-height: 52svh; }
+.media video { aspect-ratio: 9 / 16; max-height: 78svh; object-fit: contain; }
+@media (min-width: 700px) and (orientation: portrait) {
+  .recipe { grid-template-columns: minmax(220px, 32%) minmax(0, 1fr); gap: 0 28px; align-items: start; }
+  .recipe > .body { display: contents; }
+  .recipe > .pic-col { grid-column: 1; grid-row: 1; }
+  .recipe .head { grid-column: 2; grid-row: 1; align-self: center; }
+  .recipe > .body > :not(.head) { grid-column: 1 / -1; }
+  .media img { aspect-ratio: 4 / 5; max-height: none; }
+  .media video { max-height: 70svh; }
+  .recipe .two { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-top: 8px; }
+}
+@media (min-width: 600px) and (orientation: landscape) {
+  .recipe { grid-template-columns: minmax(220px, 30%) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .pic-col { position: sticky; top: calc(12px + env(safe-area-inset-top)); }
+  .media img, .media video { aspect-ratio: 9 / 16; max-height: calc(100svh - 96px); object-fit: cover; }
+  .media video { object-fit: contain; }
+}
+@media (min-width: 1000px) and (orientation: landscape) {
+  .recipe { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 32px; }
+  .recipe .two { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; }
+}
+/* a phone on its side: a narrow photo, everything else beside it */
+@media (orientation: landscape) and (max-height: 540px) {
+  .recipe { grid-template-columns: 200px minmax(0, 1fr); gap: 20px; }
+  .pic-col .switch { font-size: 13px; }
+}
 .media .play {
   position: absolute; inset-inline-end: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 8px;
   min-height: 44px; padding: 0 16px 0 12px; border-radius: 999px; border: 0; cursor: pointer;
@@ -143,8 +169,7 @@ img, video { display: block; max-width: 100%; }
 .sec h2 { font: 700 19px/1.3 var(--display); margin: 14px 0 6px; }
 .sec h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 0 2px; font-weight: 700; }
 [dir="rtl"] .sec h3 { text-transform: none; letter-spacing: 0; font-size: 15px; }
-.two { display: grid; gap: 0; }
-@media (min-width: 1100px) { .two { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; } .two .sec { margin-top: 16px; } }
+.two { display: grid; gap: 0; align-items: start; }
 
 .ings { list-style: none; margin: 0; padding: 0; }
 .ing {
@@ -166,7 +191,7 @@ img, video { display: block; max-width: 100%; }
 .steps li:last-child .step { border-bottom: 0; }
 .step .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; font-size: 15px; margin-top: 1px; }
 .step .chips { margin-top: 8px; }
-.step .chip { cursor: pointer; border: 0; }
+.step .chip { cursor: pointer; border: 0; min-height: 36px; padding: 6px 14px; }
 
 .list { margin: 4px 0 0; padding-inline-start: 22px; }
 .list li { margin: 6px 0; }
@@ -176,7 +201,7 @@ img, video { display: block; max-width: 100%; }
 .src { color: var(--muted); font-size: 15px; margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .src a { color: var(--accent); text-decoration: none; font-weight: 600; }
 
-.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 12px 0 2px; border: 0; background: none; cursor: pointer; font-size: 15px; color: var(--muted); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 0 2px; border: 0; background: none; cursor: pointer; font-size: 15px; color: var(--muted); }
 .switch .track { width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
 .switch .knob { position: absolute; top: 3px; inset-inline-start: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
 .switch[aria-checked="true"] .track { background: var(--done); }
@@ -184,27 +209,50 @@ img, video { display: block; max-width: 100%; }
 [dir="rtl"] .switch[aria-checked="true"] .knob { transform: translateX(-18px); }
 
 /* ---------- cook mode ---------- */
-.cook { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; max-width: 900px; margin: 0 auto; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
+.cook { min-height: calc(100vh - env(safe-area-inset-top)); min-height: calc(100dvh - env(safe-area-inset-top)); display: flex; flex-direction: column; max-width: 1100px; margin: 0 auto; padding: 12px 16px 0; }
+body.has-timer:has(.cook) { padding-bottom: 0; }
 .cook .bar .name { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: center; }
 .progress { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 4px 0 6px; }
 .progress span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
 .cook .count { color: var(--muted); font-size: 15px; font-weight: 600; }
 .cook .body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 22px; padding: 24px 0; }
-.cook .said { font: 600 clamp(24px, 4.6vw, 38px)/1.35 var(--display); margin: 0; letter-spacing: -.01em; }
+.cook .side { display: flex; flex-direction: column; gap: 22px; }
+.cook .said { font: 600 clamp(24px, min(4.6vw, 5.4vh), 40px)/1.35 var(--display); margin: 0; letter-spacing: -.01em; }
 .cook .uses { font-size: 18px; }
 .cook .uses .lbl { color: var(--muted); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 [dir="rtl"] .cook .uses .lbl { text-transform: none; letter-spacing: 0; font-size: 15px; }
 .cook .uses ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
 .cook .uses b { font-weight: 700; }
 .cook .tools { display: flex; flex-wrap: wrap; gap: 10px; }
-.cook .nav { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+/* Back and Next stay on screen however long the step is */
+.cook .nav { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; position: sticky; bottom: 0; z-index: 5;
+  padding: 12px 0 calc(16px + env(safe-area-inset-bottom)); background: var(--bg); }
+body.has-timer .cook .nav { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .cook .nav .btn { min-height: 60px; font-size: 19px; border-radius: 16px; }
+.cook-done { padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important; }
+/* landscape: the step on the left, what it uses beside it */
+@media (orientation: landscape) and (min-width: 600px) {
+  .cook .body:not(.cook-done) { display: grid; grid-template-columns: minmax(0, 3fr) minmax(220px, 2fr); align-content: center; align-items: center; gap: 24px 48px; }
+}
+/* a phone on its side */
+@media (orientation: landscape) and (max-height: 540px) {
+  .cook { padding-top: 4px; }
+  .cook .bar { padding: 4px 0 6px; }
+  .cook .body { padding: 10px 0; gap: 14px; }
+  .cook .said { font-size: clamp(18px, 5.8vh, 26px); }
+  .cook .uses { font-size: 16px; }
+  .cook .side { gap: 12px; }
+  .cook .nav { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  body.has-timer .cook .nav { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+  .cook .nav .btn { min-height: 48px; font-size: 17px; }
+  .cook-done h1 { font-size: 26px; margin-bottom: 10px; }
+}
 .cook-done { text-align: center; }
 .cook-done h1 { font: 700 34px/1.2 var(--display); margin: 0 0 18px; }
 .cook-done .actions { justify-content: center; }
 
 .sheet { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; }
-.sheet .panel { background: var(--card); width: 100%; max-width: 640px; max-height: 80vh; overflow: auto; border-radius: 20px 20px 0 0; padding: 8px 20px calc(20px + env(safe-area-inset-bottom)); }
+.sheet .panel { background: var(--card); width: 100%; max-width: 640px; max-height: 80vh; max-height: 85svh; overflow: auto; border-radius: 20px 20px 0 0; padding: 8px 20px calc(20px + env(safe-area-inset-bottom)); }
 .sheet .grip { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 6px auto 8px; }
 .sheet .panel .bar h2 { flex: 1; margin: 0; font: 700 19px var(--display); }
 
@@ -227,11 +275,11 @@ img, video { display: block; max-width: 100%; }
 /* ---------- accounts, memory, history, settings ---------- */
 .wrap.narrow { max-width: 760px; }
 .top .topnav { margin-inline-start: auto; display: flex; gap: 8px; }
-.top .topnav .btn { width: 42px; min-height: 42px; padding: 0; }
+.top .topnav .btn { width: 44px; min-height: 44px; padding: 0; }
 .sub { color: var(--muted); font-size: 14px; font-weight: 500; }
 .note-bar { color: inherit; text-decoration: none; border: 0; width: 100%; text-align: start; font: inherit; font-size: 15px; cursor: pointer; }
 
-.signin { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; }
+.signin { min-height: calc(100vh - env(safe-area-inset-top)); min-height: calc(100dvh - env(safe-area-inset-top)); display: grid; place-items: center; padding: 24px 16px; }
 .signin-box { width: min(380px, 100%); display: grid; gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 28px 22px; box-shadow: var(--shadow); }
 .signin-box .mark { justify-content: center; margin-bottom: 8px; }
 .signin-box label, .field { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--muted); }
@@ -263,7 +311,8 @@ img, video { display: block; max-width: 100%; }
 .mine h3 { margin-top: 16px; }
 .made { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 8px 0 2px; }
 .rating { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }
-.rating button { min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; padding: 0; }
+.rating button { min-height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-weight: 700; font-size: 15px; cursor: pointer; padding: 0; }
+@media (max-width: 440px) { .rating { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; } .rating button { min-height: 44px; } }
 .rating button.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
 .rating button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .cook-done .mine { text-align: start; max-width: 560px; margin: 0 auto 20px; width: 100%; }
@@ -277,9 +326,9 @@ img, video { display: block; max-width: 100%; }
 .hrow { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 0; text-decoration: none; }
 .hrow .pic { flex: none; width: 52px; height: 52px; border-radius: 10px; overflow: hidden; background: var(--chip); }
 .hrow .pic img { width: 100%; height: 100%; object-fit: cover; }
-.hrow .t { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrow .t { flex: 1; min-width: 0; font-weight: 600; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .hrow .when { flex: none; color: var(--muted); font-size: 14px; }
-.hlist .del { width: 38px; min-height: 38px; border: 0; background: none; color: var(--faint); }
+.hlist .del { width: 44px; min-height: 44px; border: 0; background: none; color: var(--faint); }
 .run { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 16px 8px; margin-bottom: 12px; }
 .run h3 { font-size: 15px; margin: 12px 0 4px; }
 .fail { color: var(--muted); font-size: 14px; margin: 6px 0; }
@@ -307,9 +356,11 @@ img, video { display: block; max-width: 100%; }
   padding: 10px 18px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 15px; max-width: calc(100vw - 32px); }
 .msg:empty { display: none; }
 .msg.bad { background: #B42318; color: #fff; }
-.signin-box .link, .link { background: none; border: 0; padding: 6px 0; color: var(--accent); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; justify-self: center; }
+.signin-box .link, .link { background: none; border: 0; padding: 10px 4px; min-height: 44px; color: var(--accent); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; justify-self: center; }
 .signin-box .links { display: flex; justify-content: space-between; gap: 12px; }
 .invite-code { display: grid; gap: 4px; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); }
 .invite-code b { font-size: 22px; letter-spacing: .08em; }
 .invite-code .cap { font-size: 13px; color: var(--muted); word-break: break-all; }
 .btn.lang { font-weight: 700; }
+.btn:disabled { opacity: .5; cursor: default; }
+@media (min-width: 1000px) { .cook .uses { font-size: 20px; } .cook .uses .lbl { font-size: 15px; } }

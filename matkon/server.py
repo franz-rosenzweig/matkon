@@ -98,7 +98,7 @@ def instagram_status(aid):
     i = kitchen.of(aid)
     return {"connected": bool(i["cookies"]), "shared": i["shared"], "signed_out": i["signed_out"],
             "collection_id": i["collection_id"], "collection_name": i["collection_name"],
-            "scan": _read(kitchen.collections_file(aid))}
+            "scan": _read(kitchen.collections_file(aid)), "paused": config.paused()}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -234,6 +234,7 @@ class Handler(BaseHTTPRequestHandler):
             if a.get("admin"):
                 st = config.settings()
                 out["kitchen"] = {k: st.get(k) for k in KITCHEN_KEYS}
+                out["kitchen"]["paused"] = config.paused()
                 out["accounts"] = accounts.all_accounts()
                 out["initial_password"] = (config.STATE / "initial-password.txt").exists()
                 out["invites"] = accounts.invites()
@@ -400,6 +401,13 @@ The code works for 7 days.
             kitchen.set_cookies(aid, b.get("text") or "")
         elif op == "instagram-disconnect":
             kitchen.disconnect(aid)
+        elif op in ("instagram-scan", "add-reel", "sync") and config.paused():
+            raise ValueError("Instagram checks are paused.")
+        elif op == "pause" and admin:
+            if b.get("value"):
+                config.PAUSED.write_text(time.strftime("%Y-%m-%d %H:%M\n"))
+            else:
+                config.PAUSED.unlink(missing_ok=True)
         elif op == "instagram-scan":
             if not kitchen.of(aid)["cookies"]:
                 raise ValueError("Connect Instagram first.")

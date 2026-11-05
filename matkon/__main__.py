@@ -397,6 +397,8 @@ def main():
     s = sub.add_parser("password"); s.add_argument("account", nargs="?")
     s = sub.add_parser("collection"); s.add_argument("id"); s.add_argument("name", nargs="*")
     sub.add_parser("serve")
+    sub.add_parser("pause", help="stop asking Instagram for anything until resume")
+    sub.add_parser("resume")
     a = ap.parse_args()
     config.STATE.mkdir(parents=True, exist_ok=True)
     accounts.ensure()
@@ -409,6 +411,15 @@ def main():
         return cmd_status(a)
     if a.cmd == "collection":
         return cmd_collection(a)
+    if a.cmd in ("pause", "resume"):
+        config.PAUSED.unlink(missing_ok=True) if a.cmd == "resume" else config.PAUSED.write_text(time.strftime("%Y-%m-%d %H:%M\n"))
+        say("Paused: nothing asks Instagram for anything until: python3 run.py resume" if a.cmd == "pause" else "Instagram checks are back on.")
+        return 0
+    if a.cmd in ("sync", "add", "collections") and config.paused():
+        if a.cmd == "add":
+            queue_add(a)
+        say("Paused, so Instagram wasn't asked." + (" The reel waits in the queue." if a.cmd == "add" else ""))
+        return 0
     if a.cmd == "collections":
         return cmd_collections(a)
     config.STATE.mkdir(parents=True, exist_ok=True)

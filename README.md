@@ -131,6 +131,7 @@ After that, run `python3 run.py sync` every hour or so (cron is fine). It looks 
 | `add <reel link>` | one reel, even one that isn't in the collection |
 | `redo <code> [--from STAGE]` | makes it again from `video`, `transcript`, `frames`, `link`, `recipe`, `note` or `translate` |
 | `status` | what's where |
+| `pause` / `resume` | stops (and starts again) everything that asks Instagram for anything, cron runs included. Same as the "Check Instagram" switch in Settings |
 | `password [account]` | sets a new password (the owner's by default) |
 | `serve` | the app |
 

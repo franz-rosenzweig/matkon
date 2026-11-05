@@ -34,6 +34,7 @@ Paste the link of any Instagram reel and tap **Add**, even one that isn't in a c
 
 ## Kitchen (the owner)
 
+- **Check Instagram:** off stops everything that asks Instagram for anything (the hourly run, Check now, Add a reel, Find my collections) until you turn it back on. It's for when Instagram is being touchy about your sign-in and you'd rather it heard nothing from Matkon for a while. The recipes already in come along as usual.
 - **Check now:** reads the collections right away, instead of waiting for the hour.
 - **Pages each hour:** how many pages of newest saves an hourly run looks at (21 posts a page).
 - **Every save, every (hours):** how often a run looks through every saved post, for an old save moved into a collection (168 is once a week).

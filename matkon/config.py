@@ -34,6 +34,11 @@ env = os.environ.get
 
 STATE = Path(env("MATKON_STATE") or Path.home() / ".local" / "share" / "matkon")
 REELS = STATE / "reels"
+PAUSED = STATE / "paused"          # while it's there, nothing asks Instagram for anything
+
+
+def paused():
+    return PAUSED.exists()
 SETTINGS_PATH = Path(env("MATKON_SETTINGS") or STATE / "settings.json")
 
 # The Instagram sign-in: a Netscape cookies.txt from a browser that's signed in to Instagram.
