@@ -9,10 +9,24 @@ import html
 import json
 import re
 import urllib.parse
+import urllib.error
 import urllib.request
 
 UA = "Mozilla/5.0 (compatible; Matkon/0.1; a personal recipe app)"
-SKIP = re.compile(r"instagram\.com|facebook\.com|tiktok\.com|youtube\.com|youtu\.be|linktr\.ee|beacons\.ai|stan\.store|amzn\.|amazon\.", re.I)
+SKIP = re.compile(r"instagram\.com|instagr\.am|cdninstagram\.com|fbcdn\.net|facebook\.com|fb\.me|threads\.(?:net|com)|tiktok\.com|youtube\.com|"
+                  r"youtu\.be|linktr\.ee|beacons\.ai|stan\.store|amzn\.|amazon\.", re.I)
+META = re.compile(r"^https?://(?:[^/]*\.)?(?:instagram\.com|instagr\.am|cdninstagram\.com|fbcdn\.net|facebook\.com|fb\.me|threads\.(?:net|com))(?:[:/]|$)", re.I)
+
+
+class _NotMeta(urllib.request.HTTPRedirectHandler):
+    """Matkon's server never asks Instagram (or the rest of Meta) for anything, not even through a short link."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if META.match(newurl):
+            raise urllib.error.URLError("the link leads to Instagram")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPEN = urllib.request.build_opener(_NotMeta())
 MAX_BYTES = 3_000_000
 MAX_TEXT = 14000
 
@@ -72,7 +86,7 @@ def substack_post(home, caption):
         return None
     url = m.group(1) + "/api/v1/archive?" + urllib.parse.urlencode({"sort": "new", "search": " ".join(words), "limit": 5})
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20) as r:
+        with _OPEN.open(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20) as r:
             posts = json.loads(r.read(1_000_000))
     except Exception:  # noqa: BLE001
         return None
@@ -99,7 +113,7 @@ def _fetch(url):
     out = {"url": url}
     try:
         req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,*/*;q=0.8"})
-        with urllib.request.urlopen(req, timeout=25) as r:
+        with _OPEN.open(req, timeout=25) as r:
             out["final"] = r.geturl()
             page = r.read(MAX_BYTES).decode(r.headers.get_content_charset() or "utf-8", "replace")
     except Exception as e:  # noqa: BLE001 - a page we can't get is only a missing extra

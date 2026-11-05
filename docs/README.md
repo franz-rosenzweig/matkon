@@ -13,6 +13,7 @@ These pages are how Matkon works, written down. It takes the cooking reels I sav
 - [Recipes](recipes.md): the home page, search, a recipe, the reel, and Hebrew or English
 - [Cooking](cooking.md): one step at a time, with the amounts, timers and read-aloud
 - [Memory and history](memory-and-history.md): saving, "I made it", ratings, notes, Up next, and History
+- [The browser extension](browser-extension.md): how your saved reels get from Instagram into Matkon, and setting it up
 - [Settings](settings.md): your account, what you see, Instagram, adding a reel, and the kitchen
 
 ### How it works
@@ -20,7 +21,7 @@ These pages are how Matkon works, written down. It takes the cooking reels I sav
 - [Obsidian notes](obsidian-notes.md): the note each recipe gets, and what Matkon will and won't change in it
 
 ### Under the hood
-- [Setting it up](../README.md#setting-it-up): the install, the cookies file and the first run, on the front page
+- [Setting it up](../README.md#setting-it-up): the install and the first run, on the front page
 - [Developing and running it](DEVELOPING.md): the files, the state folder, the traps, and the pictures
 
 Start with [What is Matkon?](what-is-matkon.md).

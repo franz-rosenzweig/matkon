@@ -216,12 +216,21 @@ def remembered(state):
     m["viewed"] = [[c, time.time() - i * 5400] for i, c in enumerate(["demo-cookies", "demo-shakshuka", "demo-salad", "demo-ramen", "demo-hummus"])]
     memory._save("sam", m)
     runs = [{"at": time.time() - 3 * 3600, "kind": "sync", "found": [{"code": "demo-ramen", "by": "sam"}, {"code": "demo-shakshuka", "by": "sam"}],
-             "made": [{"code": "demo-ramen", "title": ""}, {"code": "demo-shakshuka", "title": ""}], "failed": [], "signed_out": []},
+             "made": [{"code": "demo-ramen", "title": ""}, {"code": "demo-shakshuka", "title": ""}], "failed": []},
             {"at": time.time() - day, "kind": "add", "by": "alex", "made": [{"code": "demo-hummus", "title": ""}], "failed": []},
             {"at": time.time() - 2 * day, "kind": "sync", "found": [{"code": "demo-cookies", "by": "sam"}, {"code": "demo-smoothie", "by": "alex"}],
-             "made": [{"code": "demo-cookies", "title": ""}, {"code": "demo-smoothie", "title": ""}], "failed": [], "signed_out": []}]
+             "made": [{"code": "demo-cookies", "title": ""}, {"code": "demo-smoothie", "title": ""}], "failed": []}]
     (state / "runs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in reversed(runs)))
     (state / "initial-password.txt").unlink(missing_ok=True)
+    from matkon import config, kitchen                 # Sam's browser has the extension, and looked an hour ago
+    st = config.settings()
+    st.update(collection_id="17900000000000001", collection_name="Recipes")
+    config.save_settings(st)
+    kitchen.new_key("sam")
+    kitchen.seen("sam", "0.1.0", None, checked=True)
+    b = json.loads((state / "users" / "sam" / "browser.json").read_text())
+    b["checked"] = int(time.time()) - 3600
+    (state / "users" / "sam" / "browser.json").write_text(json.dumps(b))
 
 
 def main():
@@ -229,7 +238,7 @@ def main():
     port = sys.argv[2] if len(sys.argv) > 2 else "8519"
     state = Path(tempfile.mkdtemp(prefix="matkon-demo-"))
     build(state)
-    os.environ.update({"MATKON_STATE": str(state), "MATKON_SETTINGS": str(state / "settings.json"), "MATKON_COOKIES": str(state / "none.txt"),
+    os.environ.update({"MATKON_STATE": str(state), "MATKON_SETTINGS": str(state / "settings.json"),
                        "MATKON_HOSTS": host, "MATKON_PORT": port, "MATKON_OWNER": "sam", "MATKON_DEMO_ACCOUNT": "sam",
                        "MATKON_VAULT": "", "MATKON_NOTIFY": "", "MATKON_ENV": "/nonexistent"})
     sys.path.insert(0, str(ROOT))

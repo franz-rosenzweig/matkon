@@ -36,6 +36,6 @@ The clock at the top of every page opens History, with three tabs:
 
 - **Cooked:** everything you made, newest first, with the date. The bin on a line takes it away, for the time you tapped "I made it" by mistake.
 - **Viewed:** what you opened lately.
-- **Imported:** every time Matkon brought recipes in, with who added them, and anything that went wrong (a reel it couldn't get, or an Instagram sign-in that lapsed).
+- **Imported:** every time Matkon made recipes, with who added them, and anything that went wrong (a reel it couldn't make a recipe from, for one).
 
-Next: [Settings](settings.md)
+Next: [The browser extension](browser-extension.md)

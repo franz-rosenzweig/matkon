@@ -1,17 +1,20 @@
-"""Whose Instagram feeds the kitchen.
+"""Whose Instagram feeds the kitchen, through which browser.
 
-Everyone sees every recipe. Any account can also connect its own Instagram sign-in and pick one of
-its saved collections, and the reels in it join the kitchen with that account as the one who added
-them. STATE/users/<account>/cookies.txt (600) and instagram.json ({collection_id, collection_name}).
+Everyone sees every recipe. Any account can also connect a browser (the Matkon extension, with a key
+made in Settings) and pick one of its saved collections there, and the reels in it join the kitchen with
+that account as the one who added them. STATE/users/<account>/instagram.json ({collection_id,
+collection_name}) and browser.json ({hash of the key, made, seen, version, error}).
 
-The owner's account falls back to MATKON_COOKIES and the collection in settings.json, which is how a
-setup from before accounts keeps working.
+The owner's account falls back to the collection in settings.json, which is how a setup from before
+accounts keeps working.
 """
+import hashlib
+import hmac
 import json
-import os
+import secrets
 import time
 
-from . import accounts, config, instagram
+from . import accounts, config
 
 
 def _dir(aid):
@@ -20,81 +23,77 @@ def _dir(aid):
     return f
 
 
-def _info(aid):
+def _get(aid, name):
     try:
-        return json.loads((_dir(aid) / "instagram.json").read_text())
+        return json.loads((_dir(aid) / name).read_text())
     except (OSError, ValueError):
         return {}
 
 
-def _put(aid, info):
-    p = _dir(aid) / "instagram.json"
-    p.write_text(json.dumps(info))
+def _put(aid, name, info):
+    p = _dir(aid) / name
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(info))
+    tmp.replace(p)
 
 
 def of(aid):
-    """{"cookies": Path or None, "collection_id", "collection_name", "shared": bool, "signed_out": time or None}"""
-    own = _dir(aid) / "cookies.txt"
-    info = _info(aid)
+    """{"collection_id", "collection_name", "browser": {made, seen, version, error} or None}"""
+    info = _get(aid, "instagram.json")
     is_owner = aid == accounts.owner()
-    cookies = own if own.exists() else (config.COOKIES if is_owner and config.COOKIES.exists() else None)
     st = config.settings()
     cid = info.get("collection_id") or (st.get("collection_id") if is_owner else None)
     name = info.get("collection_name") or (st.get("collection_name") if is_owner and cid == st.get("collection_id") else None)
-    flag = _dir(aid) / "signed-out"
-    return {"cookies": cookies, "collection_id": cid, "collection_name": name or "",
-            "shared": cookies is not None and cookies == config.COOKIES and not own.exists(),
-            "signed_out": int(flag.stat().st_mtime) if flag.exists() else None}
-
-
-def sources():
-    """Every account that has a sign-in and a collection: [(account, cookies, collection_id)]."""
-    out = []
-    for a in accounts.all_accounts():
-        i = of(a["id"])
-        if i["cookies"] and i["collection_id"]:
-            out.append((a["id"], i["cookies"], str(i["collection_id"])))
-    return out
-
-
-def set_cookies(aid, text):
-    jar = instagram.parse_cookies(text)
-    if not jar.get("sessionid"):
-        raise ValueError("Those cookies have no Instagram sign-in in them (no sessionid).")
-    p = _dir(aid) / "cookies.txt"
-    tmp = p.with_suffix(".tmp")
-    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
-        f.write(instagram.netscape(jar))
-    tmp.replace(p)
-    mark_signed_in(aid)
-    info = _info(aid)
-    info["connected"] = int(time.time())
-    _put(aid, info)
-
-
-def disconnect(aid):
-    (_dir(aid) / "cookies.txt").unlink(missing_ok=True)
-    _put(aid, {})
-    mark_signed_in(aid)
+    b = _get(aid, "browser.json")
+    return {"collection_id": str(cid) if cid else None, "collection_name": name or "",
+            "browser": {k: b.get(k) for k in ("made", "seen", "version", "error", "checked")} if b.get("hash") else None}
 
 
 def set_collection(aid, cid, name=""):
-    info = _info(aid)
+    info = _get(aid, "instagram.json")
     info.update(collection_id=str(cid), collection_name=(name or "").strip()[:60])
-    _put(aid, info)
-    if aid == accounts.owner() and not (_dir(aid) / "cookies.txt").exists():
+    _put(aid, "instagram.json", info)
+    if aid == accounts.owner():
         st = config.settings()                     # the owner's collection lives in settings.json too
         st.update(collection_id=str(cid), collection_name=(name or "").strip()[:60] or "Recipes")
         config.save_settings(st)
 
 
-def mark_signed_out(aid):
-    (_dir(aid) / "signed-out").touch()
+# ---- the browser's key ----------------------------------------------------------------------------
+
+def _hash(key):
+    return hashlib.sha256(key.encode()).hexdigest()
 
 
-def mark_signed_in(aid):
-    (_dir(aid) / "signed-out").unlink(missing_ok=True)
+def new_key(aid):
+    """A new key for this account's browser; the old one stops working. Only its hash is kept."""
+    key = "mk_" + secrets.token_urlsafe(24)
+    _put(aid, "browser.json", {"hash": _hash(key), "made": int(time.time())})
+    return key
 
 
-def collections_file(aid):
-    return _dir(aid) / "collections.json"
+def forget_browser(aid):
+    (_dir(aid) / "browser.json").unlink(missing_ok=True)
+
+
+def who(key):
+    """The account a browser key belongs to, or None."""
+    if not key or not key.startswith("mk_") or len(key) > 100:
+        return None
+    h = _hash(key)
+    for a in accounts.all_accounts():
+        b = _get(a["id"], "browser.json")
+        if b.get("hash") and hmac.compare_digest(b["hash"], h):
+            return a["id"]
+    return None
+
+
+def seen(aid, version=None, error=None, checked=False):
+    """The browser said hello: when, which version, and what went wrong on Instagram's side, if anything."""
+    b = _get(aid, "browser.json")
+    if not b.get("hash"):
+        return
+    b.update(seen=int(time.time()), version=str(version or "")[:20] or b.get("version"), error=(str(error)[:120] if error else None))
+    if checked:
+        b["checked"] = int(time.time())
+    _put(aid, "browser.json", b)

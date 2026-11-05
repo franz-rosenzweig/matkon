@@ -20,24 +20,24 @@ The gear at the top of every page opens Settings. Everything here is for your ow
 
 ## Instagram
 
-This is how your own saved reels join the kitchen.
+This is how your own saved reels join the kitchen, through the Matkon extension in your browser. Matkon itself never talks to Instagram. See [The browser extension](browser-extension.md) for the whole story.
 
-1. **Connect:** give Matkon your Instagram sign-in as a `cookies.txt` file, from a browser that's signed in to Instagram. Any extension that exports cookies.txt will do; choose the file or paste what's in it, and tap **Connect**.
-2. **Find my collections:** Matkon looks through your saved posts (it takes a minute or two) and lists your collections, each with a few of its captions so you can tell which one is the recipes. Instagram doesn't hand out collection names anymore, which is why it shows captions.
-3. **Tap your recipe collection** to pick it. From then on the hourly run reads it with your sign-in, and its reels join the kitchen with your name on them.
+- The line at the top says when your browser last looked, and which collection is yours. If Instagram turned it away, it says that instead, and so does the home page.
+- **Firefox or Zen** and **Chrome** download the extension.
+- **Connect a browser** makes the line you paste into the extension (**Copy** copies it). Once a browser is connected, it's **New connection**, which stops the old one, and **Disconnect**.
 
-If Instagram ever turns the sign-in away, this part says **Sign-in lapsed** and the home page says so too, and nothing new comes in until you connect again.
+You pick your collection in the extension itself: open the collection on instagram.com, click the Matkon button, and **Use this collection**.
 
 ## Add a reel
 
-Paste the link of any Instagram reel and tap **Add**, even one that isn't in a collection. It shows up in the kitchen a few minutes later.
+Paste the link of any Instagram reel and tap **Add**, even one that isn't in a collection. It waits in the queue, and the extension brings it the next time a connected browser is on Instagram. A few minutes after that it's a recipe.
 
 ## Kitchen (the owner)
 
-- **Check Instagram:** off stops everything that asks Instagram for anything (the hourly run, Check now, Add a reel, Find my collections) until you turn it back on. It's for when Instagram is being touchy about your sign-in and you'd rather it heard nothing from Matkon for a while. The recipes already in come along as usual.
-- **Check now:** reads the collections right away, instead of waiting for the hour.
-- **Pages each hour:** how many pages of newest saves an hourly run looks at (21 posts a page).
-- **Every save, every (hours):** how often a run looks through every saved post, for an old save moved into a collection (168 is once a week).
+- **Check Instagram:** off makes every connected browser leave Instagram alone until you turn it back on. It's for when Instagram is being touchy and you'd rather it heard nothing from Matkon for a while. The recipes already in come along as usual.
+- **Check every (hours):** how long a browser waits between looks at the newest saves (6 by default).
+- **Pages each check:** how many pages of newest saves it looks at, at most (21 posts a page). It stops sooner, at the first reel Matkon already has.
+- **Reels an hour:** how many videos a browser brings in an hour, at most.
 - **Reels each run:** how many reels a run works through at most.
 - **Notes folder, Photos folder, Note tag:** where the Obsidian notes go, and a tag for them. See [Obsidian notes](obsidian-notes.md).
 - **App address:** Matkon's own address, for the link in each note and in invites.

@@ -5,7 +5,9 @@ The notes I want when I come back to this later.
 ## Layout
 
 - `matkon/config.py` holds the paths and settings. Everything about one particular setup comes from the env file (`MATKON_ENV`, else `private/matkon.env`, else `matkon.env`) and `settings.json`, never from the code.
-- `matkon/instagram.py` reads the saved posts and downloads videos. The website's per-collection address answers with a page now, so it pages through `/api/v1/feed/saved/posts/` (newest save first, 21 a page) and keeps the posts whose `saved_collection_ids` has the recipe collection. A normal run looks at 3 pages, and `--full` goes through all of them, which takes a few minutes for a couple of thousand saves.
+- `extension/` is the browser extension, the only part of Matkon that talks to Instagram (see "Why the server never talks to Instagram" below). `content.js` runs on instagram.com: it asks `/api/v1/feed/saved/posts/` (newest save first, 21 a page) with the page's own sign-in and headers, keeps the posts whose `saved_collection_ids` has the account's collection, stops at the first one Matkon has, and asks `/api/v1/media/<pk>/info/` only for reels it didn't see in the list (the queue, or the collection page's links). `background.js` talks to Matkon with the key and fetches each video from Instagram's video servers. `build.sh` packs it for Chrome and Firefox, `sign.sh` has Mozilla sign the Firefox one, and `node extension/test.mjs` runs the real scripts against a pretend Instagram and a throwaway Matkon.
+- `matkon/instagram.py` turns the post the extension sends into what Matkon keeps (`post.json`). It makes no requests.
+- `matkon/store.py` is the reel folders: a post, then its video, then the stages. A post with no video is "wanted", and the extension brings it.
 - `matkon/reel.py` handles the frames (one every 1.5 s, 32 at most, four to a 2×2 sheet at 432 px), the transcript (`tools/whisper_segments.py`, run with `MATKON_PY`) and the dish photo.
 - `matkon/linked.py` fetches the caption's link once, as itself (no disguise). It keeps the page's schema.org Recipe when there is one, and the page's text when there isn't. A Substack front page gets an archive search for the dish.
 - `matkon/recipe.py` holds the prompt and the call: `claude --print` with `--tools ""`, the frames sent inline in one stream-json message, and the answer cleaned into a fixed shape. Claude's raw answer is kept as `answer.txt`.
@@ -13,23 +15,27 @@ The notes I want when I come back to this later.
 - `matkon/vault.py` writes the note. It compares only the BODY to what Matkon wrote last (`vault-note.json`), because Obsidian's plugins rewrite front matter on their own.
 - `matkon/accounts.py` holds the accounts (scrypt hashes in `accounts.json`, 600) and the signed cookie, which carries an epoch so a new password signs that account out everywhere. It also keeps the one-time codes (`codes.json`, 600, hashes only): an invite for 7 days, a password reset or an email check for 15 minutes, 8 wrong tries each. Joining checks the username and password before it uses up the invite.
 - `matkon/mail.py` sends the invites and codes over SMTP with STARTTLS (`mail.json`; `MATKON_MAIL=outbox` writes them to `outbox.jsonl` instead, for tests). "Forgot password" answers the same whether or not the email has an account.
-- `matkon/kitchen.py` says whose Instagram feeds the kitchen: each account's own `users/<id>/cookies.txt` and `instagram.json`, and for the owner, `MATKON_COOKIES` and `settings.json` as a fallback.
+- `matkon/kitchen.py` says whose Instagram feeds the kitchen: each account's collection (`users/<id>/instagram.json`, and for the owner, `settings.json` as a fallback) and its browser key (`users/<id>/browser.json`, the key's hash only, with when the browser last said hello, which version, and what Instagram said if it said no).
 - `matkon/memory.py` is each account's memory (`users/<id>/memory.json`), the run log (`runs.jsonl`) and `suggest`, which ranks the kitchen for one account from what it saved, cooked, rated and opened.
-- `matkon/server.py` serves the app, the JSON and the media, with byte ranges for Safari's video player. Everything but the app's own files needs an account, and every change is a POST with JSON and an `X-Matkon: 1` header. Settings actions that take a while (finding collections, adding a reel, "Check now") run `run.py` in the background.
+- `matkon/server.py` serves the app, the JSON and the media, with byte ranges for Safari's video player. Everything but the app's own files needs an account, and every change is a POST with JSON and an `X-Matkon: 1` header. `/api/ext/*` is the extension's: `hello` (the account's collection, the pace, and the queue), `seen` (which of these codes Matkon wants), `post` (a reel's post, or why Instagram can't give it), `PUT video/<code>` (its video, checked with ffprobe; a run starts right away) and `collection`. They take the key in `X-Matkon-Key` instead of the cookie.
 - `app/` is plain JS with no build step.
 
 ## A reel's folder
 
-`<state>/reels/<code>/` holds `post.json`, `cover.jpg`, `video.mp4`, `transcript.json`, `sheets/` + `sheets.json`, `linked.json`, `answer.txt`, `recipe.json`, `photo.jpg`, `note.json` (the stage marker), `vault-note.json` (what was written, for the edit check), `recipe.en.json` + `translated.json` (the English version, and its stage marker) and `status.json`. A run does whatever stages are missing, so deleting a file redoes that stage. A reel that fails 3 times waits until `redo`.
+`<state>/reels/<code>/` holds `post.json`, `video.mp4` (and `cover.jpg` on reels from before the extension), `transcript.json`, `sheets/` + `sheets.json`, `linked.json`, `answer.txt`, `recipe.json`, `photo.jpg`, `note.json` (the stage marker), `vault-note.json` (what was written, for the edit check), `recipe.en.json` + `translated.json` (the English version, and its stage marker) and `status.json`. A run does whatever stages are missing, so deleting a file redoes that stage. A reel that fails 3 times waits until `redo`.
 
 ## Two traps
 
 - **Frame times.** ffmpeg's fps filter gives each slot the last frame before its middle, so sheet frame k is really from k·step + step/2, less one frame (0.73 s for a 1.5 s step at 30 fps). `sheets.json` records those real times. With the slot's start time instead, the photo cut lands on whatever was there, often a camera whip.
 - **Template defaults.** Claude copied a placeholder `"photo_at": 0` from the answer template. The template now asks for "one of the frame times," and `_seconds()` reads "27.0" as well as 27.
 
-## When Instagram signs out
+## Why the server never talks to Instagram
 
-Matkon sends one message (`MATKON_NOTIFY ... now`) and then stays quiet until the sign-in works again. The app shows a line on the home page too.
+The first version read the saved posts and downloaded the videos (yt-dlp) on the server, with a copy of the owner's Instagram sign-in. On its first day it paged through every save twice and downloaded about sixty reels in two hours, all from a Python client calling itself Safari, while the real browser used the same sign-in. Instagram took that for a stolen sign-in: it cut the session off, then locked the account for a day until the passwords were changed. So the rule now is that the server never makes a request to Instagram, and nothing on it holds an Instagram sign-in. The extension asks only what the website itself asks, from the browser the sign-in belongs to, while someone is actually on instagram.com, a page or two every few hours and a few videos an hour (`check_hours`, `scan_pages`, `per_hour` in `settings.json`). Keep it that way.
+
+## When Instagram says no
+
+The extension stops at the first refusal (a sign-in page, a 401 or 403, or a 429), says hello with the error, and waits for the next check. Settings and the home page show it.
 
 ## The pictures in the README
 

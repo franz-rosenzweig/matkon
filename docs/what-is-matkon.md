@@ -2,14 +2,14 @@
 
 # What is Matkon?
 
-Matkon (מתכון, Hebrew for "recipe") takes the cooking reels I save to my "Recipes" collection on Instagram and turns each one into a real recipe page: the ingredients with their amounts, the steps in order, the creator's tips, and the reel itself one tap away. I save a reel the way I always do, and within the hour it's in Matkon, and in my Obsidian vault too.
+Matkon (מתכון, Hebrew for "recipe") takes the cooking reels I save to my "Recipes" collection on Instagram and turns each one into a real recipe page: the ingredients with their amounts, the steps in order, the creator's tips, and the reel itself one tap away. I save a reel the way I always do, and the next time I'm on Instagram in my browser, it comes into Matkon, and into my Obsidian vault too.
 
 ![Matkon on a tablet between two phones](images/hero.png)
 *The home page, a recipe on a tablet, and cooking mode in the dark.*
 
 ## What it does
 
-- **Reads the collection on its own,** every hour during the day, so I never send it anything.
+- **Brings the collection in on its own,** through a small extension in my browser, so I never send it anything, and Matkon itself never touches my Instagram account. See [The browser extension](browser-extension.md).
 - **Writes down only what the reel gives.** If the creator never says how much flour, the page says "no amount" and lists it under "Not in the reel," instead of guessing. See [From reel to recipe](how-it-works.md).
 - **Finds the real recipe** on the creator's blog or newsletter when the caption links one, since that's usually where the amounts are.
 - **Cooking mode,** one step at a time, with that step's amounts right under it and timers. See [Cooking](cooking.md).

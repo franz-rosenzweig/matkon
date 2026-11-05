@@ -31,6 +31,6 @@ The owner can also make an account by hand (name, username and password), set a 
 
 ## Your own Instagram, too
 
-Anyone can connect their own Instagram and pick one of their saved collections, and the reels in it join the kitchen with their name on them ("Added by Sara"). See [Settings](settings.md#instagram).
+Anyone can connect their own browser and pick one of their saved collections, and the reels in it join the kitchen with their name on them ("Added by Sara"). See [The browser extension](browser-extension.md).
 
 Next: [Recipes](recipes.md)

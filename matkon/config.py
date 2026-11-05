@@ -34,20 +34,16 @@ env = os.environ.get
 
 STATE = Path(env("MATKON_STATE") or Path.home() / ".local" / "share" / "matkon")
 REELS = STATE / "reels"
-PAUSED = STATE / "paused"          # while it's there, nothing asks Instagram for anything
+PAUSED = STATE / "paused"          # while it's there, the browser extension leaves Instagram alone
 
 
 def paused():
     return PAUSED.exists()
 SETTINGS_PATH = Path(env("MATKON_SETTINGS") or STATE / "settings.json")
 
-# The Instagram sign-in: a Netscape cookies.txt from a browser that's signed in to Instagram.
-COOKIES = Path(env("MATKON_COOKIES") or STATE / "instagram-cookies.txt")
-
-# The Python that has yt-dlp and faster-whisper (pip install -r requirements.txt into .venv).
+# The Python that has faster-whisper (pip install -r requirements.txt into .venv).
 _VENV = ROOT / ".venv" / "bin" / "python"
 PY = env("MATKON_PY") or (str(_VENV) if _VENV.exists() else sys.executable)
-YTDLP = [PY, "-m", "yt_dlp"]
 WHISPER = [PY, str(ROOT / "tools" / "whisper_segments.py")]
 
 # An Obsidian vault for the recipe notes (optional: no vault, no notes).
@@ -55,18 +51,18 @@ VAULT = Path(env("MATKON_VAULT")) if env("MATKON_VAULT") else None
 
 # A command to tell you things: NOTIFY "Matkon" "message" [now]. Optional.
 NOTIFY = env("MATKON_NOTIFY")
-SIGNIN_HELP = env("MATKON_SIGNIN_HELP") or "Sign in to Instagram again and refresh the cookies file."
 
 DEFAULTS = {
-    "collection_id": None,          # the saved collection to read (Instagram's id for it: `matkon collections`)
+    "collection_id": None,          # the saved collection to read (Instagram's id for it; the extension sets it)
     "collection_name": "Recipes",
     "notes_dir": "Recipes",         # vault folder for the recipe notes
     "photos_dir": "Recipes/media",  # vault folder for their photos
     "note_tag": "",                 # an inline tag put on its own line above each note's title, if you want one
     "app_url": "http://127.0.0.1:8510",   # where the app is, for the link in each note
-    "scan_pages": 3,                # newest saved pages to look through on a normal run (21 posts a page)
-    "full_every_hours": 168,        # and every saved post this often (0: only with sync --full)
-    "per_run": 6,                   # reels to work through per run, at most
+    "check_hours": 6,               # the browser looks at your newest saves this often, while you're on Instagram
+    "scan_pages": 2,                # how many pages of newest saves it looks at (21 posts a page)
+    "per_hour": 4,                  # reels it brings in an hour, at most
+    "per_run": 6,                   # reels a run works through, at most
 }
 
 

@@ -7,6 +7,10 @@ Everyone signs in (accounts.py); only the app's own files and the sign-in answer
 change is a POST with JSON and an X-Matkon header, which a page on another site can't send. Videos
 are served with byte ranges, which Safari needs to play them.
 
+/api/ext is for the browser extension (extension/), which signs in with its account's key (X-Matkon-Key,
+made in Settings) and is the only thing that talks to Instagram: it sends each reel's post, then its
+video, and a run (run.py sync) makes the recipe. The server itself never asks Instagram for anything.
+
 MATKON_DEMO_ACCOUNT=<id> skips signing in and makes every visitor that account: for tools/demo.py.
 """
 import json
@@ -22,7 +26,7 @@ from pathlib import Path
 
 import urllib.parse
 
-from . import accounts, config, kitchen, mail, memory, vault
+from . import accounts, config, instagram, kitchen, mail, memory, reel, store, vault
 
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "app"
@@ -33,8 +37,11 @@ CODE = re.compile(r"^[\w-]{5,40}$")
 MEDIA = {"video.mp4": "video/mp4", "photo.jpg": "image/jpeg", "cover.jpg": "image/jpeg"}
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json", ".json": "application/json"}
-KITCHEN_KEYS = {"notes_dir": str, "photos_dir": str, "note_tag": str, "app_url": str, "scan_pages": int,
-                "full_every_hours": int, "per_run": int}
+KITCHEN_KEYS = {"notes_dir": str, "photos_dir": str, "note_tag": str, "app_url": str, "check_hours": int, "scan_pages": int,
+                "per_hour": int, "per_run": int}
+LIMITS = {"check_hours": (1, 168), "scan_pages": (1, 5), "per_hour": (1, 10), "per_run": (1, 100)}
+EXT = ROOT / "extension"
+MAX_VIDEO = 300 * 1024 * 1024
 
 
 def _read(p):
@@ -96,9 +103,18 @@ def job(args, name):
 
 def instagram_status(aid):
     i = kitchen.of(aid)
-    return {"connected": bool(i["cookies"]), "shared": i["shared"], "signed_out": i["signed_out"],
-            "collection_id": i["collection_id"], "collection_name": i["collection_name"],
-            "scan": _read(kitchen.collections_file(aid)), "paused": config.paused()}
+    return {"browser": i["browser"], "collection_id": i["collection_id"], "collection_name": i["collection_name"],
+            "paused": config.paused(), "downloads": {k: bool(_download(k)) for k in ("firefox", "chrome")}}
+
+
+def _download(kind):
+    """The extension to install: Mozilla's signed copy for Firefox and Zen (extension/signed), else
+    build.sh's; the zip for Chrome."""
+    if kind == "firefox":
+        signed = sorted((EXT / "signed").glob("*.xpi"), key=lambda p: p.stat().st_mtime) if (EXT / "signed").is_dir() else []
+        return signed[-1] if signed else (EXT / "dist" / "matkon-extension.xpi" if (EXT / "dist" / "matkon-extension.xpi").exists() else None)
+    p = EXT / "dist" / "matkon-extension.zip"
+    return p if p.exists() else None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -118,6 +134,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Robots-Tag", "noindex")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "same-origin")
+        if self.close_connection:
+            self.send_header("Connection", "close")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -130,7 +148,7 @@ class Handler(BaseHTTPRequestHandler):
     def _error(self, code, msg):
         self._json({"error": msg}, code)
 
-    def _file(self, path, ctype, cache):
+    def _file(self, path, ctype, cache, extra=None):
         size = path.stat().st_size
         rng = re.match(r"bytes=(\d*)-(\d*)$", self.headers.get("Range", ""))
         partial = bool(rng and (rng.group(1) or rng.group(2)))
@@ -149,6 +167,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(length))
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Cache-Control", cache)
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         if partial:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         self.end_headers()
@@ -194,6 +214,7 @@ class Handler(BaseHTTPRequestHandler):
     def body(self):
         n = int(self.headers.get("Content-Length") or 0)
         if n > 2_000_000:
+            self.close_connection = True
             raise ValueError("too big")
         try:
             return json.loads(self.rfile.read(n) or b"{}")
@@ -216,6 +237,13 @@ class Handler(BaseHTTPRequestHandler):
         aid = self.account()
         if not aid:
             return self._error(401, "signed out")
+        if path in ("/api/ext/firefox", "/api/ext/chrome"):
+            f = _download(path.rsplit("/", 1)[1])
+            if not f:
+                return self._error(404, "not built")
+            firefox = f.suffix == ".xpi"
+            return self._file(f, "application/x-xpinstall" if firefox else "application/zip", "private, no-cache",
+                              {"Content-Disposition": f'attachment; filename="matkon-extension{f.suffix}"'} if not firefox else None)
         if path == "/api/me":
             return self._json({"account": accounts.get(aid) or {"id": aid, "name": aid, "admin": False},
                                "owner": accounts.owner(), "memory": memory.view(aid),
@@ -262,7 +290,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?", 1)[0]
         if self.headers.get("X-Matkon") != "1":
+            self.close_connection = True              # its body is still unread: the connection can't go on
             return self._error(403, "not from Matkon")
+        if path.startswith("/api/ext/"):
+            return self.ext(path)
         try:
             b = self.body()
         except ValueError as e:
@@ -300,6 +331,104 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._error(400, str(e))
         return self._error(404, "not here")
+
+    # ---- the browser extension (extension/) ----
+
+    def ext_account(self):
+        """The account whose key came with the request, or an error to send."""
+        who = self.addr()
+        if accounts.held(who):
+            return None, (429, "Too many tries. Wait a little and try again.")
+        aid = kitchen.who(self.headers.get("X-Matkon-Key") or "")
+        if not aid:
+            accounts.failed(who)
+            return None, (401, "That key doesn't work. Make a new one in Matkon's Settings.")
+        return aid, None
+
+    def ext(self, path):
+        aid, err = self.ext_account()
+        if err:
+            self.close_connection = True
+            return self._error(*err)
+        try:
+            b = self.body()
+        except ValueError as e:
+            return self._error(400, str(e))
+        try:
+            if path == "/api/ext/hello":
+                kitchen.seen(aid, b.get("version"), b.get("error"), bool(b.get("checked")))
+                i, st = kitchen.of(aid), config.settings()
+                return self._json({"account": aid, "name": (accounts.get(aid) or {}).get("name") or aid, "paused": config.paused(),
+                                   "collection_id": i["collection_id"], "collection_name": i["collection_name"],
+                                   "check_hours": st["check_hours"], "pages": st["scan_pages"], "per_hour": st["per_hour"],
+                                   "wanted": [] if config.paused() else store.wanted()})
+            if path == "/api/ext/seen":
+                codes = [c for c in (b.get("codes") or [])[:100] if isinstance(c, str) and instagram.CODE.match(c)]
+                known = [c for c in codes if (config.REELS / c / "post.json").exists()]
+                wanted = set(store.wanted(10000))
+                return self._json({"known": known, "want": [c for c in codes if c not in known or c in wanted]})
+            if path == "/api/ext/post":
+                p = instagram.post(b.get("media") or {})
+                code = p["code"]
+                if not instagram.CODE.match(code):
+                    raise ValueError("No reel code.")
+                if b.get("error"):                        # Instagram couldn't give it
+                    store.give_up(code, str(b["error"])[:80])
+                    return self._json({"ok": True})
+                new = store.keep_post(p, by=aid)
+                if p["media_type"] not in (2, None):
+                    store.give_up(code, "not a video post")
+                    return self._json({"ok": True, "new": new, "video": False})
+                return self._json({"ok": True, "new": new, "video": not store.has(code)})
+            if path == "/api/ext/collection":
+                cid = str(b.get("id") or "")
+                if not re.match(r"^\d{5,30}$", cid):
+                    raise ValueError("That isn't a collection.")
+                kitchen.set_collection(aid, cid, str(b.get("name") or "")[:60])
+                return self._json({"ok": True})
+        except ValueError as e:
+            return self._error(400, str(e))
+        return self._error(404, "not here")
+
+    def do_PUT(self):
+        """A reel's video, from the extension: PUT /api/ext/video/<code>, after its post."""
+        m = re.match(r"^/api/ext/video/([\w-]+)$", self.path.split("?", 1)[0])
+        self.close_connection = True                      # an answer before the body is read ends the connection
+        if self.headers.get("X-Matkon") != "1" or not m or not CODE.match(m.group(1)):
+            return self._error(404, "not here")
+        aid, err = self.ext_account()
+        if err:
+            return self._error(*err)
+        f = config.REELS / m.group(1)
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = 0
+        if not (f / "post.json").exists():
+            return self._error(409, "Send the post first.")
+        if not 0 < n <= MAX_VIDEO:
+            return self._error(413, "That's too big for a reel.")
+        if (f / "video.mp4").exists():
+            return self._json({"ok": True, "had": True})
+        tmp = f / ".upload.mp4"
+        try:
+            with open(tmp, "wb") as out:
+                left = n
+                while left > 0:
+                    chunk = self.rfile.read(min(1024 * 1024, left))
+                    if not chunk:
+                        break
+                    out.write(chunk)
+                    left -= len(chunk)
+            if left or reel.duration(tmp) <= 0:
+                tmp.unlink(missing_ok=True)
+                return self._error(400, "That isn't a whole video.")
+            tmp.replace(f / "video.mp4")
+        finally:
+            tmp.unlink(missing_ok=True)
+        store.set_status(f, error=None, tries=0, stage="video")
+        job(["sync"], "sync")                             # the recipe, now (run.py's lock keeps it to one run)
+        return self._json({"ok": True})
 
     def codes(self, path, b):
         """Joining with an invite, and setting a new password with an emailed code. Signed out."""
@@ -397,33 +526,19 @@ The code works for 7 days.
             accounts.update(aid, password=b.get("new"))
         elif op in ("nutrition", "english"):
             memory.apply(aid, "setting", {"key": op, "value": b.get("value")})
-        elif op == "instagram-cookies":
-            kitchen.set_cookies(aid, b.get("text") or "")
-        elif op == "instagram-disconnect":
-            kitchen.disconnect(aid)
-        elif op in ("instagram-scan", "add-reel", "sync") and config.paused():
-            raise ValueError("Instagram checks are paused.")
+        elif op == "browser-key":
+            return {"ok": True, "key": kitchen.new_key(aid)}
+        elif op == "browser-forget":
+            kitchen.forget_browser(aid)
         elif op == "pause" and admin:
             if b.get("value"):
                 config.PAUSED.write_text(time.strftime("%Y-%m-%d %H:%M\n"))
             else:
                 config.PAUSED.unlink(missing_ok=True)
-        elif op == "instagram-scan":
-            if not kitchen.of(aid)["cookies"]:
-                raise ValueError("Connect Instagram first.")
-            kitchen.collections_file(aid).write_text(json.dumps({"running": int(time.time())}))
-            job(["collections", "--account", aid, "--out", str(kitchen.collections_file(aid))], f"collections-{aid}")
-        elif op == "instagram-collection":
-            if not re.match(r"^\d{5,30}$", str(b.get("id") or "")):
-                raise ValueError("Pick a collection.")
-            kitchen.set_collection(aid, b["id"], b.get("name") or "")
         elif op == "add-reel":
             url = str(b.get("url") or "").strip()
-            if not re.search(r"instagram\.com/(?:[\w.]+/)?(?:reels?|p|tv)/[\w-]{5,}", url):
+            if not re.search(r"instagram\.com/(?:[\w.]+/)?(?:reels?|p|tv)/[\w-]{5,}", url) or not store.queue(url, aid):
                 raise ValueError("That isn't an Instagram reel link.")
-            job(["add", url, "--by", aid], "add")
-        elif op == "sync" and admin:
-            job(["sync"], "sync-now")
         elif op == "kitchen" and admin:
             st = config.settings()
             for k, typ in KITCHEN_KEYS.items():
@@ -434,8 +549,9 @@ The code works for 7 days.
                         v = int(b[k])
                     except (TypeError, ValueError):
                         raise ValueError(f"{k} should be a number.")
-                    if not 0 <= v <= 10000:
-                        raise ValueError(f"{k} is out of range.")
+                    lo, hi = LIMITS.get(k, (0, 10000))
+                    if not lo <= v <= hi:
+                        raise ValueError(f"{k} goes from {lo} to {hi}.")
                 else:
                     v = str(b[k] or "").strip()[:200]
                 st[k] = v

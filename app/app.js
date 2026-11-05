@@ -11,7 +11,7 @@
   let LIST = null, ME = null, SUGGEST = null;
   const FULL = {};
   let query = "";
-  let emailPending = null, lastInvite = null;
+  let emailPending = null, lastInvite = null, browserKey = null;
   let kind = "All";
 
   /* ---------- helpers ---------- */
@@ -314,7 +314,7 @@
   }
   function home() {
     const notes = [];
-    if (ME.instagram && ME.instagram.signed_out) notes.push(`<a class="note-bar" href="#/settings">Instagram sign-in lapsed</a>`);
+    if (ME.instagram && ME.instagram.browser && ME.instagram.browser.error === "signed-out") notes.push(`<a class="note-bar" href="#/settings">Instagram sign-in needed in the browser</a>`);
     if (LIST.waiting) notes.push(`<div class="note-bar">${LIST.waiting} more on the way</div>`);
     return `<div class="wrap">
       ${topBar()}
@@ -514,10 +514,10 @@
   async function settingsPage() {
     const s = await getJSON("api/settings");
     const ig = s.instagram;
-    const scan = ig.scan || {};
-    const status = (!ig.connected ? "Not connected" : ig.signed_out ? "Sign-in lapsed" : ig.shared ? "Connected · shared sign-in" : "Connected") + (ig.paused ? " · Paused" : "");
-    const cols = scan.collections ? `<ul class="cols">${scan.collections.map((c) => `<li><button type="button" class="col${String(c.id) === String(ig.collection_id) ? " on" : ""}" data-action="pick-col" data-id="${esc(c.id)}">
-        <span class="t">${esc(c.count)} saved</span>${c.captions.map((t) => `<span class="cap">${esc(t)}</span>`).join("")}</button></li>`).join("")}</ul>` : "";
+    const br = ig.browser;
+    const said = { "signed-out": "Instagram sign-in needed", busy: "Instagram asked for a break", instagram: "Instagram didn't answer" };
+    const status = [!br ? "No browser connected" : !br.seen ? "Waiting for the browser" : br.error && said[br.error] ? said[br.error] : br.checked ? "Checked " + dayTime(br.checked) : "Browser connected",
+      ig.paused ? "Paused" : "", ig.collection_id ? ig.collection_name || "Collection " + ig.collection_id : ""].filter(Boolean).join(" · ");
     const k = s.kitchen;
     return `<div class="wrap narrow">${topBar("Settings")}
       ${s.initial_password ? `<button type="button" class="note-bar" data-action="to-password">Change your first password</button>` : ""}
@@ -532,21 +532,19 @@
         <button type="button" class="switch" role="switch" aria-checked="${s.settings.nutrition}" data-action="nutrition"><span>Calories and protein</span><span class="track"><span class="knob"></span></span></button>
         <button type="button" class="switch" role="switch" aria-checked="${!!s.settings.english}" data-action="english"><span>Hebrew recipes in English</span><span class="track"><span class="knob"></span></span></button></section>
       <section class="sec set"><h2>Instagram</h2>
-        <p class="status">${esc(status)}${ig.collection_id ? ` · ${esc(ig.collection_name || "Collection " + ig.collection_id)}` : ""}</p>
-        ${ig.connected ? `<div class="row"><button type="button" class="btn" data-action="scan"${scan.running ? " disabled" : ""}>${scan.running ? "Looking…" : "Find my collections"}</button>${ig.shared ? "" : `<button type="button" class="btn" data-action="disconnect">Disconnect</button>`}</div>` : ""}
-        ${scan.error ? `<p class="err">Instagram sign-in lapsed</p>` : ""}${cols}
-        <form data-form="cookies" class="stack"><h3>${ig.connected && !ig.shared ? "New sign-in" : "Connect"}</h3>
-          <label class="field"><span>cookies.txt</span><input type="file" name="file" accept=".txt,.json,text/plain,application/json"></label>
-          <label class="field"><span>Or paste it</span><textarea name="text" rows="3" spellcheck="false"></textarea></label>
-          <button class="btn" type="submit">Connect</button></form></section>
+        <p class="status">${esc(status)}</p>
+        <h3>Extension</h3>
+        <div class="row">${ig.downloads.firefox ? `<a class="btn" href="api/ext/firefox">Firefox or Zen</a>` : ""}${ig.downloads.chrome ? `<a class="btn" href="api/ext/chrome" download>Chrome</a>` : ""}</div>
+        <div class="row"><button type="button" class="btn" data-action="browser-key"${br ? ' data-connected="1"' : ""}>${br ? "New connection" : "Connect a browser"}</button>${br ? `<button type="button" class="btn" data-action="browser-forget">Disconnect</button>` : ""}</div>
+        ${browserKey ? `<div class="invite-code"><span class="sub">Connection</span><input class="conn" type="text" readonly value="${esc(browserKey)}"><button type="button" class="btn" data-action="copy-key">Copy</button></div>` : ""}</section>
       <section class="sec set"><h2>Add a reel</h2>
         <form data-form="add" class="row">${field("url", "Reel link", "", "url")}<button class="btn" type="submit">Add</button></form></section>
       ${k ? `<section class="sec set"><h2>Kitchen</h2>
         <button type="button" class="switch" role="switch" aria-checked="${!k.paused}" data-action="pause"><span>Check Instagram</span><span class="track"><span class="knob"></span></span></button>
-        <div class="row"><button type="button" class="btn" data-action="sync"${k.paused ? " disabled" : ""}>Check now</button></div>
         <form data-form="kitchen" class="stack">
-          ${field("scan_pages", "Pages each hour", k.scan_pages, "number", 'min="1" max="50"')}
-          ${field("full_every_hours", "Every save, every (hours)", k.full_every_hours, "number", 'min="0" max="10000"')}
+          ${field("check_hours", "Check every (hours)", k.check_hours, "number", 'min="1" max="168"')}
+          ${field("scan_pages", "Pages each check", k.scan_pages, "number", 'min="1" max="5"')}
+          ${field("per_hour", "Reels an hour", k.per_hour, "number", 'min="1" max="10"')}
           ${field("per_run", "Reels each run", k.per_run, "number", 'min="1" max="100"')}
           ${field("notes_dir", "Notes folder", k.notes_dir)}${field("photos_dir", "Photos folder", k.photos_dir)}${field("note_tag", "Note tag", k.note_tag)}
           ${field("app_url", "App address", k.app_url, "url")}
@@ -586,7 +584,7 @@
     const [page, code, n] = route();
     const key = location.hash;
     const same = key === lastRoute;
-    if (!same) { stopSpeaking(); if (!keepScroll) playing = null; }
+    if (!same) { stopSpeaking(); if (!keepScroll) playing = null; if (page !== "settings") browserKey = null; }
     if (!same && page && lastRoute && !lastRoute.replace(/^#\/?/, "")) sessionStorage.setItem("mk.homeY", String(window.scrollY));
     let html, r = null;
     if (page === "join") { signInPage("", "join", { email: code || "", code: n || "" }); lastRoute = key; return; }
@@ -676,10 +674,16 @@
     else if (act === "signout") { await post("api/signout").catch(() => {}); signInPage(); }
     else if (act === "english") { const on = b.getAttribute("aria-checked") !== "true"; if (await setting("english", { value: on })) { b.setAttribute("aria-checked", on); Object.keys(FULL).forEach((c) => delete FULL[c]); Object.keys(langChoice).forEach((c) => delete langChoice[c]); ME.memory.settings.english = on; } }
     else if (act === "nutrition") { const on = b.getAttribute("aria-checked") !== "true"; if (await setting("nutrition", { value: on })) { b.setAttribute("aria-checked", on); Object.keys(FULL).forEach((c) => delete FULL[c]); } }
-    else if (act === "scan") { if (await setting("instagram-scan", {})) { render(true); pollScan(); } }
-    else if (act === "disconnect") { if (await setting("instagram-disconnect", {})) { ME = null; render(true); } }
-    else if (act === "pick-col") { if (await setting("instagram-collection", { id: b.dataset.id, name: "Recipes" }, "Saved")) render(true); }
-    else if (act === "sync") setting("sync", {}, "Checking");
+    else if (act === "browser-key") {
+      if (b.dataset.connected && !confirm("A new connection stops the old one. Make one?")) return;
+      try { const d = await post("api/settings", { op: "browser-key" }); browserKey = location.origin + location.pathname.replace(/\/+$/, "") + "/#/key/" + d.key; ME = null; render(true); }
+      catch (err) { if (err instanceof SignedOut) signInPage(); else say(err.message, true); }
+    }
+    else if (act === "browser-forget") { if (confirm("Disconnect the browser?") && await setting("browser-forget", {}, "Disconnected")) { browserKey = null; ME = null; render(true); } }
+    else if (act === "copy-key") {
+      const i = document.querySelector("input.conn");
+      try { await navigator.clipboard.writeText(i.value); say("Copied"); } catch (err) { i.select(); }
+    }
     else if (act === "pause") { const on = b.getAttribute("aria-checked") === "true"; if (await setting("pause", { value: on }, on ? "Paused" : "Checking Instagram again")) render(true); }
     else if (act === "mode") signInPage("", b.dataset.mode);
     else if (act === "invite-cancel") { if (await setting("invite-cancel", { email: b.dataset.email }, "Invite cancelled")) render(true); }
@@ -690,13 +694,6 @@
     else if (act === "to-password") { const p = document.getElementById("password"); p.scrollIntoView({ behavior: "smooth", block: "center" }); p.querySelector("input").focus({ preventScroll: true }); }
     else if (act === "remove-account") { if (confirm("Remove this account?") && await setting("account-remove", { id: b.dataset.id })) { ME = null; render(true); } }
   });
-  function pollScan() {
-    const t = setInterval(async () => {
-      if (route()[0] !== "settings") { clearInterval(t); return; }
-      const s = await getJSON("api/settings").catch(() => null);
-      if (s && !(s.instagram.scan || {}).running) { clearInterval(t); render(true); }
-    }, 5000);
-  }
   document.addEventListener("submit", async (e) => {
     const f = e.target.closest("form[data-form]");
     if (!f) return;
@@ -740,13 +737,7 @@
     }
     if (kindOf === "name") { if (await setting("name", { name: v.name }, "Saved")) ME = null; }
     else if (kindOf === "password") { if (await setting("password", { old: v.old, new: v.new }, "Password changed")) f.reset(); }
-    else if (kindOf === "cookies") {
-      let text = v.text || "";
-      const file = f.querySelector("input[type=file]").files[0];
-      if (file) text = await file.text();
-      if (await setting("instagram-cookies", { text }, "Connected")) { ME = null; render(true); }
-    }
-    else if (kindOf === "add") { if (await setting("add-reel", { url: v.url }, "Added. It's on the way.")) f.reset(); }
+    else if (kindOf === "add") { if (await setting("add-reel", { url: v.url }, "Added")) f.reset(); }
     else if (kindOf === "kitchen") setting("kitchen", v, "Saved");
     else if (kindOf === "account") { if (await setting("account-add", v, "Account added")) { ME = null; render(true); } }
     else if (kindOf === "reset") { if (await setting("account-password", { id: f.dataset.id, password: v.password }, "Password set")) f.reset(); }
