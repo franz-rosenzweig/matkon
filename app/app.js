@@ -11,7 +11,7 @@
   let LIST = null, ME = null, SUGGEST = null;
   const FULL = {};
   let query = "";
-  let emailPending = null, lastInvite = null, browserKey = null;
+  let emailPending = null, lastInvite = null, browserKey = null, shareResult = null;
   let kind = "All";
 
   /* ---------- helpers ---------- */
@@ -575,6 +575,27 @@
     }
   }
 
+  /* ---------- a reel shared from the phone (the manifest's share_target opens ./?title=&text=&url=) ---------- */
+  async function sharedPage() {
+    const text = sessionStorage.getItem("mk.share");
+    if (text != null) {
+      try {
+        shareResult = await post("api/settings", { op: "add-reel", url: text });
+        LIST = await getJSON("api/recipes");
+      } catch (e) {
+        if (e instanceof SignedOut) throw e;          // kept for after signing in
+        shareResult = { error: e.message };
+      }
+      sessionStorage.removeItem("mk.share");
+    }
+    const d = shareResult;
+    const r = d.code ? byCode(d.code) : null;
+    const head = d.error ? "Not a reel link" : r && d.done ? "Already in Matkon" : d.new ? "Added" : "Already on the way";
+    return `<div class="wrap narrow">${topBar()}
+      <section class="shared"><h2>${esc(head)}</h2>${r && d.done ? `<ul class="hlist">${rowHTML(r)}</ul>` : ""}
+        <a class="btn" href="#/">Done</a></section></div>`;
+  }
+
   /* ---------- router ---------- */
   let lastRoute = "";
   function route() {
@@ -588,6 +609,7 @@
     if (!same && page && lastRoute && !lastRoute.replace(/^#\/?/, "")) sessionStorage.setItem("mk.homeY", String(window.scrollY));
     let html, r = null;
     if (page === "join") { signInPage("", "join", { email: code || "", code: n || "" }); lastRoute = key; return; }
+    if (page === "shared" && !shareResult && sessionStorage.getItem("mk.share") == null) { location.replace("#/"); return; }
     try {
       await loadAll();
       if (page === "r" || page === "cook") r = await loadOne(code);
@@ -596,6 +618,7 @@
       else if (page === "cook") html = cookPage(r, n === "done" ? "done" : parseInt(n, 10) || 1);
       else if (page === "history") html = await historyPage(code);
       else if (page === "settings") html = await settingsPage();
+      else if (page === "shared") html = await sharedPage();
       else html = home();
     } catch (e) {
       if (e instanceof SignedOut) { signInPage(); return; }
@@ -766,6 +789,12 @@
   });
 
   if (timer && timer.end < Date.now() - 3600e3) { timer = null; store.set("timer", null); }
+  const shared = new URLSearchParams(location.search);
+  if (["title", "text", "url"].some((k) => shared.has(k))) {
+    sessionStorage.setItem("mk.share", ["url", "text", "title"].map((k) => shared.get(k) || "").join(" "));
+    shareResult = null;
+    history.replaceState(null, "", location.pathname + "#/shared");
+  }
   render(false);
   if (canSpeak) speechSynthesis.getVoices();
 })();

@@ -536,9 +536,14 @@ The code works for 7 days.
             else:
                 config.PAUSED.unlink(missing_ok=True)
         elif op == "add-reel":
-            url = str(b.get("url") or "").strip()
-            if not re.search(r"instagram\.com/(?:[\w.]+/)?(?:reels?|p|tv)/[\w-]{5,}", url) or not store.queue(url, aid):
+            # from Settings, or shared from a phone (the text a share brings can hold more than the link)
+            url = str(b.get("url") or "").strip()[:2000]
+            m = re.search(r"instagram\.com/(?:[\w.]+/)?(?:reels?|p|tv)/[\w-]{5,}", url)
+            code = instagram.code_in(m.group(0)) if m else ""
+            known = bool(code) and instagram.CODE.match(code) and (config.REELS / code / "post.json").exists()
+            if not m or not store.queue(m.group(0), aid):
                 raise ValueError("That isn't an Instagram reel link.")
+            return {"ok": True, "code": code, "new": not known, "done": store.finished(config.REELS / code)}
         elif op == "kitchen" and admin:
             st = config.settings()
             for k, typ in KITCHEN_KEYS.items():

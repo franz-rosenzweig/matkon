@@ -32,6 +32,8 @@ You pick your collection in the extension itself: open the collection on instagr
 
 Paste the link of any Instagram reel and tap **Add**, even one that isn't in a collection. It waits in the queue, and the extension brings it the next time a connected browser is on Instagram. A few minutes after that it's a recipe.
 
+On an Android phone it's even easier, because Matkon can sit in the phone's share menu. Open Matkon in Chrome and install it (the menu's **Install app**, or **Add to Home screen** and then **Install**). After that, tap the share button on a reel in the Instagram app and pick Matkon. Matkon opens and says **Added**, or **Already in Matkon** with the recipe if you saved it before, and the reel goes into the same queue. If Matkon was already on your home screen before it learned this, remove it and install it again so the share menu picks it up. iPhones and iPads can't do this, because Safari doesn't let a web page into the share menu.
+
 ## Kitchen (the owner)
 
 - **Check Instagram:** off makes every connected browser leave Instagram alone until you turn it back on. It's for when Instagram is being touchy and you'd rather it heard nothing from Matkon for a while. The recipes already in come along as usual.

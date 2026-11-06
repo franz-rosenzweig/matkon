@@ -36,7 +36,7 @@ It says whether the extension is connected and when it last looked, and on Insta
 - **Send this reel,** on a reel's own page: brings that reel in, even one that isn't in your collection.
 - **Use this collection,** on one of your saved collections: makes it the one Matkon reads for you.
 
-**Add a reel** in Matkon's Settings works too: the reel waits in the kitchen's queue, and the extension brings it the next time any connected browser is on Instagram.
+**Add a reel** in Matkon's Settings works too, and so does sharing a reel to Matkon from an Android phone: the reel waits in the kitchen's queue, and the extension brings it the next time any connected browser is on Instagram.
 
 ## Turning it off
 

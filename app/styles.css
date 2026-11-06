@@ -113,6 +113,9 @@ img, video { display: block; max-width: 100%; }
 .card .t { font-weight: 650; font-size: 16px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card .by { color: var(--muted); font-size: 13.5px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+.shared { display: grid; justify-items: center; gap: 18px; padding: 48px 0 24px; text-align: center; }
+.shared h2 { margin: 0; font: 700 26px/1.2 var(--display); letter-spacing: -.01em; }
+.shared .hlist { width: 100%; text-align: start; }
 .note-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); margin: 0 0 14px; font-size: 15px; }
 
 /* ---------- recipe ---------- */

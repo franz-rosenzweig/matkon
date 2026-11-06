@@ -19,7 +19,7 @@ Matkon (מתכון, Hebrew for "recipe") takes the cooking reels I save to my "R
 
 ## Where you open it
 
-Matkon is a web page, so it works on a phone, a tablet or a computer, in light or dark mode. Mine is at my own address, and it only opens for people with an account. On a phone, "Add to Home Screen" makes it open like an app.
+Matkon is a web page, so it works on a phone, a tablet or a computer, in light or dark mode. Mine is at my own address, and it only opens for people with an account. On a phone, "Add to Home Screen" makes it open like an app. On Android, installing it from Chrome also puts Matkon in the share menu, so a reel goes in from the Instagram app with one tap (see [Add a reel](settings.md#add-a-reel)).
 
 ## Signing in
 
