@@ -33,4 +33,4 @@ The body has the photo, the facts (serves, times, oven), the ingredients, the st
 
 Only the owner's memory goes into the notes, since the vault is theirs. Everyone else's stays in Matkon.
 
-Next: [Developing and running it](DEVELOPING.md)
+Next: [Nextcloud Cookbook](nextcloud-cookbook.md)

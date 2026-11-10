@@ -52,6 +52,11 @@ VAULT = Path(env("MATKON_VAULT")) if env("MATKON_VAULT") else None
 # A command to tell you things: NOTIFY "Matkon" "message" [now]. Optional.
 NOTIFY = env("MATKON_NOTIFY")
 
+# Nextcloud Cookbook, for a copy of every recipe there (cookbook.py). Optional: the WebDAV address of
+# Cookbook's folder, and a file holding user:app-password.
+COOKBOOK = env("MATKON_COOKBOOK")
+COOKBOOK_LOGIN = env("MATKON_COOKBOOK_LOGIN")
+
 DEFAULTS = {
     "collection_id": None,          # the saved collection to read (Instagram's id for it; the extension sets it)
     "collection_name": "Recipes",

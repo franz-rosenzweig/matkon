@@ -4,6 +4,7 @@
   python3 run.py add URL|CODE                one reel, even one outside the collection: it waits for the browser
   python3 run.py redo CODE [--from STAGE]    again from: transcript, frames, link, recipe, note, translate (video: the browser brings it again)
   python3 run.py collection ID [NAME]        the owner's collection (the extension sets it too)
+  python3 run.py cookbook                    a copy of what changed in Nextcloud Cookbook (sync does it too)
   python3 run.py status                      what's where
   python3 run.py password [ACCOUNT]          a new password (the owner's by default)
   python3 run.py pause | resume              the browser extension leaves Instagram alone, or not
@@ -21,7 +22,7 @@ import subprocess
 import sys
 import time
 
-from . import accounts, config, instagram, linked, memory, reel, recipe, translate, vault
+from . import accounts, config, cookbook, instagram, linked, memory, reel, recipe, translate, vault
 from .store import FILES, STAGES, folder, pending, queue, read as _read, set_status, status_of, write as _write
 
 
@@ -172,6 +173,15 @@ def cmd_sync(a):
         memory.log_run({"kind": "sync", "found": found, "made": done, "failed": failed})
     if done and not a.quiet:
         notify("Matkon", "New recipes: " + "; ".join(d["title"] for d in done) + f". {st['app_url']}")
+    cookbook.catch_up(say)
+    return 0
+
+
+def cmd_cookbook(a):
+    if not cookbook.enabled():
+        say("No Cookbook: set MATKON_COOKBOOK and MATKON_COOKBOOK_LOGIN.")
+        return 1
+    say(cookbook.catch_up(say), "sent to Cookbook")
     return 0
 
 
@@ -190,7 +200,9 @@ def cmd_redo(a):
     if not (config.REELS / code / "post.json").exists():
         say("No reel", code)
         return 1
-    return 0 if work(code, (vault.find_notes() if config.VAULT else {}), force_from=a.stage) else 1
+    ok = work(code, (vault.find_notes() if config.VAULT else {}), force_from=a.stage)
+    cookbook.catch_up(say)
+    return 0 if ok else 1
 
 
 def cmd_status(a):
@@ -207,6 +219,8 @@ def cmd_status(a):
     for _, code, stage, title, inc, err in sorted(rows, reverse=True):
         print(f"{code:13} {stage:10} {title[:40]:40} {inc:10} {err[:60]}")
     print(len(rows), "reels")
+    if cookbook.enabled():
+        print(len(_read(cookbook.SENT, {}) or {}), "in Cookbook")
 
 
 def cmd_password(a):
@@ -239,6 +253,7 @@ def main():
     s = sub.add_parser("add"); s.add_argument("what"); s.add_argument("--by", help="the account adding it")
     s = sub.add_parser("redo"); s.add_argument("code"); s.add_argument("--from", dest="stage", choices=STAGES, default="recipe")
     sub.add_parser("status")
+    sub.add_parser("cookbook", help="a copy of what changed in Nextcloud Cookbook")
     s = sub.add_parser("password"); s.add_argument("account", nargs="?")
     s = sub.add_parser("collection"); s.add_argument("id"); s.add_argument("name", nargs="*")
     sub.add_parser("serve")
@@ -270,7 +285,7 @@ def main():
     except BlockingIOError:
         say("Another run is going; this one stops.")
         return 0
-    return {"sync": cmd_sync, "redo": cmd_redo}[a.cmd](a)
+    return {"sync": cmd_sync, "redo": cmd_redo, "cookbook": cmd_cookbook}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,8 @@ Matkon never talks to Instagram itself. The extension in your browser does that 
 6. **The note** in the owner's Obsidian vault. See [Obsidian notes](obsidian-notes.md).
 7. **The English version,** when the recipe is in Hebrew. Claude translates it, and Matkon checks that it has the same ingredient groups, ingredients, steps and tips in the same order, and the same timers, before keeping it.
 
+After that, when the owner has set it up, the recipe goes over to Nextcloud Cookbook too. See [Nextcloud Cookbook](nextcloud-cookbook.md).
+
 ## Only what the reel says
 
 This is the one rule that matters. Claude is told to use only the caption, the speech, the words on screen, what's plainly shown and the creator's own page, and never to estimate an amount, a time, a temperature or a number of servings.

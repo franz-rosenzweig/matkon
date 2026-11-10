@@ -19,6 +19,7 @@ These pages are how Matkon works, written down. It takes the cooking reels I sav
 ### How it works
 - [From reel to recipe](how-it-works.md): every step a reel goes through, and the "only what the reel says" rule
 - [Obsidian notes](obsidian-notes.md): the note each recipe gets, and what Matkon will and won't change in it
+- [Nextcloud Cookbook](nextcloud-cookbook.md): a copy of every recipe in Cookbook, for its phone apps
 
 ### Under the hood
 - [Setting it up](../README.md#setting-it-up): the install and the first run, on the front page
