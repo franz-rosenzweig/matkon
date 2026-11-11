@@ -14,6 +14,7 @@ These pages are how Matkon works, written down. It takes the cooking reels I sav
 - [Cooking](cooking.md): one step at a time, with the amounts, timers and read-aloud
 - [Memory and history](memory-and-history.md): saving, "I made it", ratings, notes, Up next, and History
 - [The browser extension](browser-extension.md): how your saved reels get from Instagram into Matkon, and setting it up
+- [Instagram sign-in on the server](instagram-sign-in.md): the other way, with no browser open, and what it costs
 - [Settings](settings.md): your account, what you see, Instagram, adding a reel, and the kitchen
 
 ### How it works

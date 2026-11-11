@@ -52,6 +52,12 @@ VAULT = Path(env("MATKON_VAULT")) if env("MATKON_VAULT") else None
 # A command to tell you things: NOTIFY "Matkon" "message" [now]. Optional.
 NOTIFY = env("MATKON_NOTIFY")
 
+# The Python for the server's own look at Instagram (igserver.py): one with curl_cffi, so it reaches
+# Instagram the way the pasted sign-in's browser does. .venv-ig in the checkout, unless this says else.
+_IG_VENV = ROOT / ".venv-ig" / "bin" / "python"
+IG_PY = env("MATKON_IG_PY") or (str(_IG_VENV) if _IG_VENV.exists() else sys.executable)
+IG_ORIGIN = env("MATKON_IG_ORIGIN") or "https://www.instagram.com"     # a pretend Instagram, for tools/test_igserver.py
+
 # Nextcloud Cookbook, for a copy of every recipe there (cookbook.py). Optional: the WebDAV address of
 # Cookbook's folder, and a file holding user:app-password.
 COOKBOOK = env("MATKON_COOKBOOK")

@@ -291,6 +291,7 @@ body.has-timer .cook .nav { padding-bottom: calc(76px + env(safe-area-inset-bott
   font: inherit; font-size: 16px; font-weight: 400;
 }
 .field textarea, .mine textarea { min-height: 84px; resize: vertical; line-height: 1.45; }
+.field textarea.cookies { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; min-height: 72px; word-break: break-all; }
 .err { color: #C0392B; font-size: 15px; margin: 0; }
 @media (prefers-color-scheme: dark) { .err { color: #FF8A7A; } }
 

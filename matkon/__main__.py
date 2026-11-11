@@ -1,6 +1,8 @@
 """matkon: saved recipe reels → recipe pages.
 
-  python3 run.py sync [--limit N]            work through the reels the browser brought in
+  python3 run.py sync [--limit N]            work through the reels the browser brought in (and look at Instagram
+                                             first, for accounts that pasted a sign-in)
+  python3 run.py instagram                   just that look, when it's time (igserver.py; needs curl_cffi)
   python3 run.py add URL|CODE                one reel, even one outside the collection: it waits for the browser
   python3 run.py redo CODE [--from STAGE]    again from: transcript, frames, link, recipe, note, translate (video: the browser brings it again)
   python3 run.py collection ID [NAME]        the owner's collection (the extension sets it too)
@@ -10,8 +12,9 @@
   python3 run.py pause | resume              the browser extension leaves Instagram alone, or not
   python3 run.py serve                       the app (server.py)
 
-Matkon never talks to Instagram itself. The browser extension sends each reel's post and video (see
-server.py, /api/ext), and the stages take it from there, in order (video → transcript → frames → link →
+The browser extension sends each reel's post and video (see server.py, /api/ext), or, for an account
+that pasted its Instagram sign-in into Settings, the server looks itself (igserver.py, gently, from
+`sync`). The stages take it from there, in order (video → transcript → frames → link →
 recipe → note → translate), each leaving its file in reels/<code>/, so a run picks up where the last one
 stopped.
 """
@@ -22,7 +25,7 @@ import subprocess
 import sys
 import time
 
-from . import accounts, config, cookbook, instagram, linked, memory, reel, recipe, translate, vault
+from . import accounts, config, cookbook, instagram, kitchen, linked, memory, reel, recipe, translate, vault
 from .store import FILES, STAGES, folder, pending, queue, read as _read, set_status, status_of, write as _write
 
 
@@ -149,8 +152,38 @@ def work(code, notes, force_from=None):
 
 # ---- commands ----------------------------------------------------------------------------------
 
+def _instagram():
+    """The server's own look, for accounts that pasted a sign-in: in IG_PY, the Python with curl_cffi."""
+    if not kitchen.with_signin() or config.paused():
+        return
+    try:
+        subprocess.run([config.IG_PY, "-I", str(config.ROOT / "run.py"), "instagram"], timeout=3600, check=False)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        say("instagram:", e)
+
+
+def cmd_instagram(a):
+    try:
+        import curl_cffi  # noqa: F401 - only to know it's there
+    except ImportError:
+        say("The server's look at Instagram needs curl_cffi: set MATKON_IG_PY to a Python that has it.")
+        return 1
+    if config.paused():
+        say("Paused: Matkon leaves Instagram alone.")
+        return 0
+    lock = open(config.STATE / ".ig-lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return 0
+    from . import igserver
+    igserver.run_all(say)
+    return 0
+
+
 def cmd_sync(a):
     """Works through the reels the browser brought in (new ones that come in meanwhile too)."""
+    _instagram()
     st = config.settings()
     notes = (vault.find_notes() if config.VAULT else {})
     done, failed, tried = [], [], set()
@@ -254,6 +287,7 @@ def main():
     s = sub.add_parser("redo"); s.add_argument("code"); s.add_argument("--from", dest="stage", choices=STAGES, default="recipe")
     sub.add_parser("status")
     sub.add_parser("cookbook", help="a copy of what changed in Nextcloud Cookbook")
+    sub.add_parser("instagram", help="the server's own look at Instagram, for accounts that pasted a sign-in")
     s = sub.add_parser("password"); s.add_argument("account", nargs="?")
     s = sub.add_parser("collection"); s.add_argument("id"); s.add_argument("name", nargs="*")
     sub.add_parser("serve")
@@ -279,6 +313,8 @@ def main():
         return 0
     if a.cmd == "add":
         return cmd_add(a)
+    if a.cmd == "instagram":
+        return cmd_instagram(a)
     lock = open(config.STATE / ".lock", "w")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

@@ -103,8 +103,9 @@ def job(args, name):
 
 def instagram_status(aid):
     i = kitchen.of(aid)
-    return {"browser": i["browser"], "collection_id": i["collection_id"], "collection_name": i["collection_name"],
-            "paused": config.paused(), "downloads": {k: bool(_download(k)) for k in ("firefox", "chrome")}}
+    return {"browser": i["browser"], "signin": kitchen.signin_status(aid), "collection_id": i["collection_id"],
+            "collection_name": i["collection_name"], "paused": config.paused(),
+            "downloads": {k: bool(_download(k)) for k in ("firefox", "chrome")}}
 
 
 def _download(kind):
@@ -358,7 +359,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/ext/hello":
                 kitchen.seen(aid, b.get("version"), b.get("error"), bool(b.get("checked")))
                 i, st = kitchen.of(aid), config.settings()
-                return self._json({"account": aid, "name": (accounts.get(aid) or {}).get("name") or aid, "paused": config.paused(),
+                # an account whose sign-in the server uses: its browser leaves Instagram alone
+                return self._json({"account": aid, "name": (accounts.get(aid) or {}).get("name") or aid,
+                                   "paused": config.paused() or bool(kitchen.signin_status(aid)),
                                    "collection_id": i["collection_id"], "collection_name": i["collection_name"],
                                    "check_hours": st["check_hours"], "pages": st["scan_pages"], "per_hour": st["per_hour"],
                                    "wanted": [] if config.paused() else store.wanted()})
@@ -530,6 +533,18 @@ The code works for 7 days.
             return {"ok": True, "key": kitchen.new_key(aid)}
         elif op == "browser-forget":
             kitchen.forget_browser(aid)
+        elif op == "signin":
+            kitchen.set_signin(aid, instagram.parse_cookies(str(b.get("cookies") or "")[:20000]), b.get("ua"), b.get("langs"))
+        elif op == "signin-forget":
+            kitchen.forget_signin(aid)
+        elif op == "collection":
+            # the collection's page on instagram.com (…/saved/<name>/<id>/), or just its number
+            v = str(b.get("value") or "").strip()[:300]
+            m = re.search(r"/saved/([^/?#]+)/(\d{5,30})", v) or re.fullmatch(r"()(\d{5,30})", v)
+            if not m:
+                raise ValueError("That isn't a saved collection's address.")
+            name = urllib.parse.unquote(m.group(1)).replace("-", " ").replace("_", " ").strip()
+            kitchen.set_collection(aid, m.group(2), name[:1].upper() + name[1:] if name else kitchen.of(aid)["collection_name"])
         elif op == "pause" and admin:
             if b.get("value"):
                 config.PAUSED.write_text(time.strftime("%Y-%m-%d %H:%M\n"))
@@ -543,6 +558,8 @@ The code works for 7 days.
             known = bool(code) and instagram.CODE.match(code) and (config.REELS / code / "post.json").exists()
             if not m or not store.queue(m.group(0), aid):
                 raise ValueError("That isn't an Instagram reel link.")
+            if kitchen.with_signin() and not config.paused() and not store.has(code):
+                job(["sync"], "sync")                     # the server looks: it comes in a minute
             return {"ok": True, "code": code, "new": not known, "done": store.finished(config.REELS / code)}
         elif op == "kitchen" and admin:
             st = config.settings()

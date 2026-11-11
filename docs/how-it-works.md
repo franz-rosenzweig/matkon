@@ -4,9 +4,9 @@
 
 ![Save, Watch, Follow, Write, Cook](images/how-it-works.svg)
 
-Matkon never talks to Instagram itself. The extension in your browser does that part while you're on instagram.com, and sends each new reel in your recipe collection to Matkon (see [The browser extension](browser-extension.md)). Then the reel goes through these steps, one after the other. Each step leaves its file behind, so if something stops halfway, the next run picks up where it left off.
+The extension in your browser looks at Instagram while you're on instagram.com, and sends each new reel in your recipe collection to Matkon (see [The browser extension](browser-extension.md)). Or, with a sign-in pasted into Settings, the server looks itself, during the day (see [Instagram sign-in on the server](instagram-sign-in.md)). Then the reel goes through these steps, one after the other. Each step leaves its file behind, so if something stops halfway, the next run picks up where it left off.
 
-1. **The video.** The extension sends it, the same file Instagram's page plays, right after the post (who made it and the caption). Matkon starts on it the moment it arrives.
+1. **The video.** The extension sends it (or the server fetches it), the same file Instagram's page plays, right after the post (who made it and the caption). Matkon starts on it the moment it arrives.
 2. **What's said.** faster-whisper writes out the speech, on the server itself. A silent reel just skips this.
 3. **What's on screen.** A frame every second and a half (32 at most), four to a sheet, so the words the creator puts on screen can be read.
 4. **The linked page.** When the caption links the creator's own recipe page ("full recipe on my blog"), Matkon reads it once. Recipe sites usually carry the recipe as data for search engines, with every amount, and Matkon takes that when it's there. A link to a Substack's front page gets a search of that Substack for the dish. A page behind a paywall gives what it gives.

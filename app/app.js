@@ -314,7 +314,8 @@
   }
   function home() {
     const notes = [];
-    if (ME.instagram && ME.instagram.browser && ME.instagram.browser.error === "signed-out") notes.push(`<a class="note-bar" href="#/settings">Instagram sign-in needed in the browser</a>`);
+    if (ME.instagram && ME.instagram.signin && ME.instagram.signin.error === "signed-out") notes.push(`<a class="note-bar" href="#/settings">Instagram sign-in needed</a>`);
+    else if (ME.instagram && ME.instagram.browser && ME.instagram.browser.error === "signed-out") notes.push(`<a class="note-bar" href="#/settings">Instagram sign-in needed in the browser</a>`);
     if (LIST.waiting) notes.push(`<div class="note-bar">${LIST.waiting} more on the way</div>`);
     return `<div class="wrap">
       ${topBar()}
@@ -514,9 +515,10 @@
   async function settingsPage() {
     const s = await getJSON("api/settings");
     const ig = s.instagram;
-    const br = ig.browser;
+    const br = ig.browser, si = ig.signin;
     const said = { "signed-out": "Instagram sign-in needed", busy: "Instagram asked for a break", instagram: "Instagram didn't answer" };
-    const status = [!br ? "No browser connected" : !br.seen ? "Waiting for the browser" : br.error && said[br.error] ? said[br.error] : br.checked ? "Checked " + dayTime(br.checked) : "Browser connected",
+    const status = [si ? (si.error && said[si.error] ? said[si.error] : si.checked ? "Checked " + dayTime(si.checked) : "Waiting for the first check")
+      : !br ? "No browser connected" : !br.seen ? "Waiting for the browser" : br.error && said[br.error] ? said[br.error] : br.checked ? "Checked " + dayTime(br.checked) : "Browser connected",
       ig.paused ? "Paused" : "", ig.collection_id ? ig.collection_name || "Collection " + ig.collection_id : ""].filter(Boolean).join(" · ");
     const k = s.kitchen;
     return `<div class="wrap narrow">${topBar("Settings")}
@@ -533,6 +535,11 @@
         <button type="button" class="switch" role="switch" aria-checked="${!!s.settings.english}" data-action="english"><span>Hebrew recipes in English</span><span class="track"><span class="knob"></span></span></button></section>
       <section class="sec set"><h2>Instagram</h2>
         <p class="status">${esc(status)}</p>
+        <h3>Sign-in</h3>
+        ${si ? `<div class="row"><span class="sub">Added ${esc(day(si.added))}</span><button type="button" class="btn" data-action="signin-forget">Forget</button></div>` : ""}
+        <form data-form="collection" class="row">${field("value", "Collection", "", "text", 'autocomplete="off" spellcheck="false" autocapitalize="off"')}<button class="btn" type="submit">Save</button></form>
+        <form data-form="signin" class="stack"><label class="field"><span>Cookies</span><textarea name="cookies" class="cookies" spellcheck="false" autocomplete="off" autocapitalize="off" required></textarea></label>
+          <button class="btn" type="submit">${si ? "Replace" : "Save"}</button></form>
         <h3>Extension</h3>
         <div class="row">${ig.downloads.firefox ? `<a class="btn" href="api/ext/firefox">Firefox or Zen</a>` : ""}${ig.downloads.chrome ? `<a class="btn" href="api/ext/chrome" download>Chrome</a>` : ""}</div>
         <div class="row"><button type="button" class="btn" data-action="browser-key"${br ? ' data-connected="1"' : ""}>${br ? "New connection" : "Connect a browser"}</button>${br ? `<button type="button" class="btn" data-action="browser-forget">Disconnect</button>` : ""}</div>
@@ -702,6 +709,7 @@
       try { const d = await post("api/settings", { op: "browser-key" }); browserKey = location.origin + location.pathname.replace(/\/+$/, "") + "/#/key/" + d.key; ME = null; render(true); }
       catch (err) { if (err instanceof SignedOut) signInPage(); else say(err.message, true); }
     }
+    else if (act === "signin-forget") { if (confirm("Forget the Instagram sign-in?") && await setting("signin-forget", {}, "Forgotten")) { ME = null; render(true); } }
     else if (act === "browser-forget") { if (confirm("Disconnect the browser?") && await setting("browser-forget", {}, "Disconnected")) { browserKey = null; ME = null; render(true); } }
     else if (act === "copy-key") {
       const i = document.querySelector("input.conn");
@@ -760,6 +768,11 @@
     }
     if (kindOf === "name") { if (await setting("name", { name: v.name }, "Saved")) ME = null; }
     else if (kindOf === "password") { if (await setting("password", { old: v.old, new: v.new }, "Password changed")) f.reset(); }
+    else if (kindOf === "collection") { if (await setting("collection", { value: v.value }, "Saved")) { ME = null; render(true); } }
+    else if (kindOf === "signin") {
+      // the browser it's pasted in is the one the server dresses as: its User-Agent and languages go along
+      if (await setting("signin", { cookies: v.cookies, ua: navigator.userAgent, langs: (navigator.languages || [navigator.language]).join(",") }, "Saved")) { ME = null; render(true); }
+    }
     else if (kindOf === "add") { if (await setting("add-reel", { url: v.url }, "Added")) f.reset(); }
     else if (kindOf === "kitchen") setting("kitchen", v, "Saved");
     else if (kindOf === "account") { if (await setting("account-add", v, "Account added")) { ME = null; render(true); } }

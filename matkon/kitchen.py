@@ -1,9 +1,13 @@
-"""Whose Instagram feeds the kitchen, through which browser.
+"""Whose Instagram feeds the kitchen, and how.
 
 Everyone sees every recipe. Any account can also connect a browser (the Matkon extension, with a key
 made in Settings) and pick one of its saved collections there, and the reels in it join the kitchen with
 that account as the one who added them. STATE/users/<account>/instagram.json ({collection_id,
 collection_name}) and browser.json ({hash of the key, made, seen, version, error}).
+
+Or an account pastes an Instagram sign-in (its cookies) into Settings, and the server looks itself
+(igserver.py). That's sign-in.json, mode 600: the cookies, the browser it came from, and how the
+looking went. Its cookies never leave the server and never go to the app.
 
 The owner's account falls back to the collection in settings.json, which is how a setup from before
 accounts keeps working.
@@ -11,6 +15,7 @@ accounts keeps working.
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import time
 
@@ -97,3 +102,48 @@ def seen(aid, version=None, error=None, checked=False):
     if checked:
         b["checked"] = int(time.time())
     _put(aid, "browser.json", b)
+
+
+# ---- a pasted Instagram sign-in (the server looks itself) ------------------------------------------
+
+SIGNIN = "sign-in.json"
+REQUIRED = ("sessionid", "ds_user_id", "csrftoken")
+
+
+def signin(aid):
+    """Everything about the account's pasted sign-in (cookies included): for igserver.py only."""
+    return _get(aid, SIGNIN)
+
+
+def save_signin(aid, info):
+    p = _dir(aid) / SIGNIN
+    tmp = p.with_suffix(".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(info, f)
+    tmp.replace(p)
+
+
+def set_signin(aid, jar, ua, langs):
+    """A new sign-in: the cookies, and the browser they came from (the server dresses as it)."""
+    missing = [k for k in REQUIRED if not jar.get(k)]
+    if missing:
+        raise ValueError("That isn't a whole Instagram sign-in (no " + ", ".join(missing) + ").")
+    save_signin(aid, {"jar": jar, "ua": str(ua or "")[:400], "langs": str(langs or "")[:200], "added": int(time.time())})
+
+
+def forget_signin(aid):
+    (_dir(aid) / SIGNIN).unlink(missing_ok=True)
+
+
+def signin_status(aid):
+    """What the app may see of it: when it came, when the server last looked, and what Instagram said."""
+    s = _get(aid, SIGNIN)
+    return {k: s.get(k) for k in ("added", "checked", "error", "brought_at")} if s.get("jar") else None
+
+
+def with_signin():
+    """Accounts that pasted a sign-in, the owner first."""
+    owner = accounts.owner()
+    ids = [a["id"] for a in accounts.all_accounts() if (_dir(a["id"]) / SIGNIN).exists()]
+    return sorted(ids, key=lambda a: a != owner)

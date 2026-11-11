@@ -2,13 +2,13 @@
 
 # The browser extension
 
-The extension is how saved reels get from Instagram into Matkon. It lives in your own browser, and it's the only part of Matkon that ever talks to Instagram.
+The extension is how saved reels get from Instagram into Matkon. It lives in your own browser, and it's the safest way: with it, Matkon's server never talks to Instagram at all. (The other way is pasting an Instagram sign-in into Settings, so the server looks itself; see [Instagram sign-in on the server](instagram-sign-in.md).)
 
 ## Why it works this way
 
 The first version did it all on the server. Matkon read my saved posts and downloaded the reels itself, using a copy of my Instagram sign-in. Instagram saw that sign-in being used from my browser and from a server at the same time, and on the first day the server did far more than any person would, going through every save I had and downloading sixty videos in a couple of hours. So Instagram decided someone had broken into my account. It locked me out for a day, and I had to change my passwords.
 
-So now the server never asks Instagram for anything. The extension does that part from my own browser, signed in as me, while I'm on instagram.com anyway, and it asks only for what the website itself asks for when I use it. To Instagram it just looks like me, looking at my own saves.
+So with the extension, the server never asks Instagram for anything. The extension does that part from my own browser, signed in as me, while I'm on instagram.com anyway, and it asks only for what the website itself asks for when I use it. To Instagram it just looks like me, looking at my own saves.
 
 ## What it does
 
@@ -40,7 +40,7 @@ It says whether the extension is connected and when it last looked, and on Insta
 
 ## Turning it off
 
-The owner's **Check Instagram** switch (Settings › Kitchen) makes every connected browser leave Instagram alone until it's on again. Or just remove the extension. The recipes already in Matkon stay.
+The owner's **Check Instagram** switch (Settings › Kitchen) makes every connected browser leave Instagram alone until it's on again. Or just remove the extension. The recipes already in Matkon stay. A browser also leaves Instagram alone while its account has a sign-in pasted in Settings, since then the server does the looking.
 
 It doesn't come in a Safari version yet.
 

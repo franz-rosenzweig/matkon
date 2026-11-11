@@ -30,7 +30,7 @@ Matkon does the boring part. It watches the reel, writes out what's said, reads 
 
 ## What it does
 
-- **Brings your collection in on its own.** A small extension in your browser picks up whatever you've saved to your recipe collection while you're on Instagram, so you never have to send it anything. Matkon's server never touches your Instagram account: your sign-in stays in your browser.
+- **Brings your collection in on its own.** A small extension in your browser picks up whatever you've saved to your recipe collection while you're on Instagram, so you never have to send it anything. Or paste an Instagram sign-in into Settings, and the server looks by itself, gently, with no browser open.
 - **Only what the reel says.** When a creator doesn't give an amount, the page says "no amount" and lists it under "Not in the reel," instead of guessing. Calories and protein show up only when the reel states them.
 - **Finds the real recipe.** When the caption links the creator's blog or newsletter, that's usually where the amounts are, so Matkon reads it. If the link only goes to a Substack's front page, it searches that Substack for the dish.
 - **Cooking mode.** One step at a time in big letters, with that step's amounts right under it, timers that keep going if the page reloads, and read-aloud.
@@ -77,7 +77,7 @@ The pictures come from `tools/demo.py`: made-up recipes by made-up creators and 
 
 <img src="docs/images/how-it-works.svg" alt="Save a reel, Matkon watches it, follows the creator's recipe page, Claude writes the recipe from only what the reel gives, and you cook from the page or the Obsidian note">
 
-The Matkon extension in your browser is the only part that talks to Instagram. While you're on instagram.com, every few hours, it looks at your newest saves the way the website itself does, and sends each new reel in your recipe collection to Matkon: the post, then the video. Then Matkon:
+Every few hours, the Matkon extension in your browser (while you're on instagram.com), or the server itself (with a sign-in you pasted), looks at your newest saves the way the website itself does, and takes each new reel in your recipe collection: the post, then the video. Then Matkon:
 
 1. starts on the video the moment it arrives,
 2. writes out what's said with faster-whisper, on your own machine,
@@ -116,7 +116,15 @@ Without it, an invite shows its code and link for you to pass on yourself.
 
 Then the extension, which brings the reels in. `extension/build.sh` packs it into `extension/dist/`, and Settings › Instagram hands it out: Chrome (or Arc, or Edge) loads the unzipped folder in Developer mode, and Firefox and Zen need it signed by Mozilla first (`extension/sign.sh`, with your own addons.mozilla.org API keys; "unlisted," so it's never public there). In Settings, **Connect a browser** gives you one line to paste into the extension's settings. Then open your recipe collection on instagram.com, click the Matkon button, and **Use this collection**. The [extension's page](docs/browser-extension.md) has the whole thing.
 
-Each video starts a run as it arrives. If you like, run `python3 run.py sync` every hour or so too (cron is fine), to pick up anything that stopped halfway. It never touches Instagram.
+Or, instead of the extension, the server can look itself, with an Instagram sign-in pasted into Settings. That needs [curl_cffi](https://github.com/lexiforest/curl_cffi), in its own venv so it stays out of the way, and a `sync` every hour (cron), which is when it looks:
+
+```bash
+python3 -m venv .venv-ig && .venv-ig/bin/pip install -r requirements-ig.txt
+```
+
+The [sign-in page](docs/instagram-sign-in.md) has how to get a sign-in safely, and what it costs.
+
+Each video starts a run as it arrives. If you like, run `python3 run.py sync` every hour or so too (cron is fine), to pick up anything that stopped halfway. With the extension it never touches Instagram; with a pasted sign-in it looks when it's time.
 
 | Command | What it does |
 | --- | --- |
@@ -142,6 +150,7 @@ Under the hood there are two small files. **`matkon.env`**, for where things are
 | `MATKON_HOSTS`, `MATKON_PORT` | where the app answers (`127.0.0.1`, `8510`); add a private address, like a Tailscale one, to use it from your phone |
 | `MATKON_MODEL` | a Claude model, or leave it to Claude Code's default |
 | `MATKON_NOTIFY` | a command to tell you about new recipes: `CMD "Matkon" "message" [now]` |
+| `MATKON_IG_PY` | the Python with curl_cffi, for the server's own look at Instagram, if it isn't `.venv-ig` |
 | `MATKON_COOKBOOK`, `MATKON_COOKBOOK_LOGIN` | Nextcloud Cookbook's folder (its WebDAV address) and a file holding `user:app-password`, for a copy of every recipe there; leave them out for none. See [Nextcloud Cookbook](docs/nextcloud-cookbook.md) |
 | `MATKON_PY` | the Python with faster-whisper, if it isn't `.venv` |
 | `MATKON_OWNER` | the owner's username, for the first account |
@@ -162,7 +171,7 @@ Under the hood there are two small files. **`matkon.env`**, for where things are
 
 ## A few honest notes
 
-- Matkon's server never talks to Instagram. It used to, with a copy of my sign-in, and Instagram took that for a break-in and locked my account for a day. Now the extension asks Instagram only what its own website asks, from your own browser while you're using it, and gently: a page or two every few hours, and a few videos an hour. That still isn't an official API, so it can break when Instagram changes things, and any automation on your account is against Instagram's rules, so it's yours to decide.
+- The first version read Instagram from the server with a copy of my sign-in, and Instagram took that for a break-in and locked my account for a day. Now the extension asks Instagram only what its own website asks, from your own browser while you're using it. If you'd rather have the server look, paste a sign-in made just for Matkon: it dresses as your browser, and goes gently either way (a page or two every few hours, and a few videos an hour), but it's the riskier of the two. Neither is an official API, so either can break when Instagram changes things, and any automation on your account is against Instagram's rules, so it's yours to decide.
 - The pages hold other people's videos and recipes, so keep the kitchen to your own people. Everything but the sign-in page needs an account, and if you open it to the internet, do it over HTTPS (a Cloudflare Tunnel works well), so the sign-in cookie stays secure.
 - Your notes, ratings and what you cooked go into the owner's Obsidian notes too (front matter `rating`, `cooked`, `last`, and the Notes heading), as long as you haven't rewritten the note yourself.
 - The creators did the cooking. Every page links back to the reel and to the creator's own recipe page.

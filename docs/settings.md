@@ -20,9 +20,11 @@ The gear at the top of every page opens Settings. Everything here is for your ow
 
 ## Instagram
 
-This is how your own saved reels join the kitchen, through the Matkon extension in your browser. Matkon itself never talks to Instagram. See [The browser extension](browser-extension.md) for the whole story.
+This is how your own saved reels join the kitchen: through the Matkon extension in your browser, or with an Instagram sign-in pasted here, so the server looks itself. See [The browser extension](browser-extension.md) and [Instagram sign-in on the server](instagram-sign-in.md) for the whole story.
 
-- The line at the top says when your browser last looked, and which collection is yours. If Instagram turned it away, it says that instead, and so does the home page.
+- The line at the top says when Instagram was last looked at (by the server, when there's a sign-in, or else your browser), and which collection is yours. If Instagram turned it away, it says that instead, and so does the home page.
+- **Collection:** the address of your recipe collection's page on instagram.com (or its number). The extension's **Use this collection** sets it too.
+- **Sign-in › Cookies:** paste a sign-in and **Save** (or **Replace**). **Forget** deletes it from the server.
 - **Firefox or Zen** and **Chrome** download the extension.
 - **Connect a browser** makes the line you paste into the extension (**Copy** copies it). Once a browser is connected, it's **New connection**, which stops the old one, and **Disconnect**.
 
