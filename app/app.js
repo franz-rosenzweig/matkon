@@ -145,8 +145,11 @@
       cup: "cup", cups: "cup", c: "cup", tbsp: "tbsp", tbs: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", "כף": "tbsp", "כפות": "tbsp",
       tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp", "כפית": "tsp", "כפיות": "tsp", g: "g", gr: "g", gram: "g", grams: "g", "גרם": "g",
       kg: "kg", ml: "ml", l: "l", liter: "l", liters: "l", litre: "l", lb: "lb", lbs: "lb", pound: "lb", pounds: "lb", oz: "oz",
-      ounce: "oz", ounces: "oz", clove: "clove", cloves: "clove", can: "can", cans: "can", "כוס": "cup", "כוסות": "cup" }));
-    const UNIT_SHOW = { cup: ["cup", "cups"], clove: ["clove", "cloves"], can: ["can", "cans"] };
+      ounce: "oz", ounces: "oz", clove: "clove", cloves: "clove", can: "can", cans: "can", "כוס": "cup", "כוסות": "cup",
+      head: "head", heads: "head", bunch: "bunch", bunches: "bunch", sprig: "sprig", sprigs: "sprig", slice: "slice", slices: "slice",
+      stick: "stick", sticks: "stick", piece: "piece", pieces: "piece" }));
+    const UNIT_SHOW = { cup: ["cup", "cups"], clove: ["clove", "cloves"], can: ["can", "cans"], head: ["head", "heads"], bunch: ["bunch", "bunches"],
+      sprig: ["sprig", "sprigs"], slice: ["slice", "slices"], stick: ["stick", "sticks"], piece: ["piece", "pieces"] };
     // the same thing from two recipes is one line: "Eggs" and "egg" both buy eggs
     const key = (item) => norm(item).split(" ").map((w) =>
       w.length > 4 && w.endsWith("ies") ? w.slice(0, -3) + "y" : w.length > 4 && w.endsWith("oes") ? w.slice(0, -2)
