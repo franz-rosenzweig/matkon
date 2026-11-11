@@ -1,6 +1,7 @@
 """What Matkon remembers for each account, on the server so every device sees the same thing:
 saved recipes, ticked ingredients and the cooking step (both forgotten after 12 hours), notes,
-ratings (1-10), what was opened lately, what was cooked when, and the account's own settings.
+ratings (1-10), what was opened lately, what was cooked when, the week plan, the shopping list and
+the account's own settings.
 STATE/users/<account>/memory.json.
 
 `suggest` is the "learns your taste" part: it ranks the kitchen for one account from what that
@@ -16,6 +17,15 @@ from . import config
 
 FRESH = 12 * 3600          # ticks and the cooking step last this long
 VIEWED = 60
+PLAN_KEEP = 14             # days a planned meal stays after its day
+SHOP_MAX = 600
+DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+ID = re.compile(r"^[0-9a-f]{8}$")
+
+
+def _id(x):
+    """The id an app made up (so it can work offline), or a new one."""
+    return x if isinstance(x, str) and ID.match(x) else secrets.token_hex(4)
 _lock = threading.Lock()
 DEFAULT_SETTINGS = {"nutrition": True, "english": False}
 
@@ -27,7 +37,8 @@ def folder(aid):
 
 
 def _empty():
-    return {"saved": {}, "ticks": {}, "steps": {}, "notes": {}, "ratings": {}, "viewed": [], "cooked": [], "settings": {}}
+    return {"saved": {}, "ticks": {}, "steps": {}, "notes": {}, "ratings": {}, "viewed": [], "cooked": [], "settings": {},
+            "plan": [], "shop": []}
 
 
 def load(aid):
@@ -53,6 +64,8 @@ def view(aid):
     m["steps"] = {c: s["n"] for c, s in m["steps"].items() if now - s.get("at", 0) < FRESH}
     m["notes"] = {c: n["text"] for c, n in m["notes"].items() if n.get("text")}
     m["settings"] = {**DEFAULT_SETTINGS, **m["settings"]}
+    since = time.strftime("%Y-%m-%d", time.localtime(now - PLAN_KEEP * 86400))
+    m["plan"] = sorted((p for p in m["plan"] if p["day"] >= since), key=lambda p: (p["day"], p["at"]))
     m["cooked_count"], m["cooked_last"] = {}, {}
     for e in m["cooked"]:
         m["cooked_count"][e["code"]] = m["cooked_count"].get(e["code"], 0) + 1
@@ -87,7 +100,7 @@ def apply(aid, op, a):
         elif op == "view":
             m["viewed"] = [[code, now]] + [v for v in m["viewed"] if v[0] != code][: VIEWED - 1]
         elif op == "cooked":
-            m["cooked"].append({"id": secrets.token_hex(4), "code": code, "at": int(a.get("at") or now)})
+            m["cooked"].append({"id": _id(a.get("id")), "code": code, "at": int(a.get("at") or now)})
             m["steps"].pop(code, None)
             m["ticks"].pop(code, None)
         elif op == "uncook":
@@ -104,6 +117,39 @@ def apply(aid, op, a):
                 m["ratings"].pop(code, None)
             else:
                 m["ratings"][code] = max(1, min(10, int(r)))
+        elif op == "plan-add":
+            day = str(a.get("day") or "")
+            if not DAY.match(day):
+                raise ValueError("bad day")
+            m["plan"].append({"id": _id(a.get("id")), "code": code, "day": day, "at": now})
+            m["plan"] = m["plan"][-400:]
+        elif op == "plan-move":
+            day = str(a.get("day") or "")
+            if not DAY.match(day):
+                raise ValueError("bad day")
+            for p in m["plan"]:
+                if p["id"] == a.get("id"):
+                    p["day"] = day
+        elif op == "plan-remove":
+            m["plan"] = [p for p in m["plan"] if p["id"] != a.get("id")]
+        elif op == "shop-add":
+            # a recipe's ingredients (as scaled on the phone), or one thing typed in (no code)
+            for i in (a.get("items") or [])[:200]:
+                item = str(i.get("item") or "").strip()[:200]
+                if item:
+                    m["shop"].append({"id": _id(i.get("id")), "item": item, "amount": str(i.get("amount") or "")[:60],
+                                      "code": code, "done": False, "at": now})
+            m["shop"] = m["shop"][-SHOP_MAX:]
+        elif op == "shop-tick":
+            ids = {str(x) for x in a.get("ids") or []}
+            for i in m["shop"]:
+                if i["id"] in ids:
+                    i["done"] = bool(a.get("done"))
+        elif op == "shop-remove":
+            ids = {str(x) for x in a.get("ids") or []}
+            m["shop"] = [i for i in m["shop"] if i["id"] not in ids]
+        elif op == "shop-clear":
+            m["shop"] = [i for i in m["shop"] if not i["done"]] if a.get("done") else []
         elif op == "setting":
             key = a.get("key")
             if key not in DEFAULT_SETTINGS:

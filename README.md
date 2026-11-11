@@ -44,6 +44,7 @@ Matkon does the boring part. It watches the reel, writes out what's said, reads 
 - **Share from your phone.** On Android, Matkon installs from Chrome and sits in the share menu, so a reel goes into the queue from the Instagram app with one tap.
 - **Hebrew too, and in English.** Hebrew reels stay in Hebrew, with Hebrew labels, right to left, and each one also gets an English version, so one tap switches between them (ticked ingredients, notes and your place in the steps carry over). Anyone who'd rather read them in English can turn that on in Settings. Reels in any other language come out in English.
 - **Obsidian notes.** Every recipe can also be a note with proper front matter, so a Bases view of your recipes lists it. Once you edit a note, it's yours, and Matkon never writes over it.
+- **An Android app.** [Matkon for Android](https://github.com/franz-rosenzweig/matkon-android) brings it to a phone or a tablet: cook mode that keeps the screen on, step timers that ring like an alarm clock, amounts ½× to 3×, a week plan and a shared shopping list, and every recipe kept on the device for when the Wi-Fi doesn't reach.
 - **Nextcloud Cookbook.** Every recipe can also go over to Nextcloud Cookbook, so its free phone apps (Android and iPhone) have them too, offline.
 - **Phone, tablet and computer,** in light and dark mode.
 
@@ -178,7 +179,7 @@ Under the hood there are two small files. **`matkon.env`**, for where things are
 
 ## Docs
 
-The full guide is in [docs/](docs/README.md), and on the web at [docs.tiresia.xyz/matkon](https://docs.tiresia.xyz/matkon/): [what Matkon is](docs/what-is-matkon.md), [accounts and invites](docs/accounts-and-invites.md), [recipes](docs/recipes.md), [cooking](docs/cooking.md), [memory and history](docs/memory-and-history.md), [settings](docs/settings.md), [from reel to recipe](docs/how-it-works.md), [Obsidian notes](docs/obsidian-notes.md), [Nextcloud Cookbook](docs/nextcloud-cookbook.md), and [developing it](docs/DEVELOPING.md).
+The full guide is in [docs/](docs/README.md), and on the web at [docs.tiresia.xyz/matkon](https://docs.tiresia.xyz/matkon/): [what Matkon is](docs/what-is-matkon.md), [accounts and invites](docs/accounts-and-invites.md), [recipes](docs/recipes.md), [cooking](docs/cooking.md), [memory and history](docs/memory-and-history.md), [the Android app](docs/android-app.md), [settings](docs/settings.md), [from reel to recipe](docs/how-it-works.md), [Obsidian notes](docs/obsidian-notes.md), [Nextcloud Cookbook](docs/nextcloud-cookbook.md), and [developing it](docs/DEVELOPING.md).
 
 ## License
 

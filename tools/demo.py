@@ -223,6 +223,8 @@ def remembered(state):
              "made": [{"code": "demo-cookies", "title": ""}, {"code": "demo-smoothie", "title": ""}], "failed": []}]
     (state / "runs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in reversed(runs)))
     (state / "initial-password.txt").unlink(missing_ok=True)
+    if os.environ.get("MATKON_DEMO_PASSWORD"):         # so an app can sign in to the demo (the Android app's checks)
+        accounts.update("sam", password=os.environ["MATKON_DEMO_PASSWORD"])
     from matkon import config, kitchen                 # Sam's browser has the extension, and looked an hour ago
     st = config.settings()
     st.update(collection_id="17900000000000001", collection_name="Recipes")
