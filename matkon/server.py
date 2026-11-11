@@ -70,7 +70,7 @@ def recipe_full(code, lang=None):
     if lang and lang != orig and lang in langs:
         r = {**r, **(_read(f / f"recipe.{lang}.json") or {})}
     return {**r, "code": code, "langs": langs, "original_lang": orig, "user": p.get("user", ""), "name": p.get("name", ""), "reel": p.get("url"),
-            "found": p.get("found", 0), "added_by": p.get("added_by") or accounts.owner(), "photo": _photo(code, r),
+            "found": p.get("found", 0), "posted": p.get("taken_at"), "added_by": p.get("added_by") or accounts.owner(), "photo": _photo(code, r),
             "video": f"m/{code}/video.mp4" if (f / "video.mp4").exists() else None}
 
 
@@ -85,7 +85,7 @@ def index():
             continue
         en = _read(f / "recipe.en.json") if r.get("lang") != "en" else None
         out.append({k: r.get(k) for k in ("code", "title", "summary", "kind", "lang", "user", "tags", "cuisine", "complete",
-                                          "is_recipe", "found", "photo", "time", "servings", "main_ingredients", "added_by")}
+                                          "is_recipe", "found", "posted", "name", "photo", "time", "servings", "main_ingredients", "added_by")}
                    | {"items": [i["item"] for g in r.get("ingredient_groups", []) for i in g["items"]]}
                    | ({"title_en": en.get("title"), "items_en": [i["item"] for g in en.get("ingredient_groups", []) for i in g["items"]]} if en else {}))
     out.sort(key=lambda x: -(x.get("found") or 0))

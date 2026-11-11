@@ -13,12 +13,15 @@
   let query = "";
   let emailPending = null, lastInvite = null, browserKey = null, shareResult = null;
   let kind = "All";
+  let creator = null;                                  // #/from/<user>: one creator's recipes
+  let sortBy = "added";                                // Added, Posted or A–Z (remembered on this device)
 
   /* ---------- helpers ---------- */
   const store = {
     get(k, d) { try { const v = localStorage.getItem("mk." + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem("mk." + k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
   };
+  if (["posted", "az"].includes(store.get("sort"))) sortBy = store.get("sort");
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/\p{M}+/gu, "").replace(/[^\p{L}\p{N} ]+/gu, " ").replace(/\s+/g, " ").trim();
   const fmtMin = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ""}`);
@@ -27,13 +30,14 @@
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
     return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0");
   };
-  const day = (t) => new Date(t * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: new Date(t * 1000).getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+  const day = (t, lang) => new Date(t * 1000).toLocaleDateString(lang === "he" ? "he-IL" : undefined, { day: "numeric", month: "short", year: new Date(t * 1000).getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
   const dayTime = (t) => new Date(t * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
   const ico = (d, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra || ""}>${d}</svg>`;
   const I = {
     back: ico('<path d="M15 5l-7 7 7 7"/>', 'class="flip"'),
     search: ico('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),
     x: ico('<path d="M6 6l12 12M18 6L6 18"/>'),
+    sort: ico('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>'),
     play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
     check: ico('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 'stroke="#fff" stroke-width="3.2"'),
     clock: ico('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M10 2h4"/>'),
@@ -59,14 +63,16 @@
       step: (k, n) => `Step ${k} of ${n}`, next: "Next", backStep: "Back", done: "Done", finished: "Made it", again: "Start again",
       toRecipe: "Back to the recipe", uses: "Uses", timer: (m) => `Timer ${fmtMin(m)}`, noAmt: "no amount", calories: "Calories",
       protein: "Protein", carbs: "Carbs", fat: "Fat", close: "Close", notRecipe: "Not a recipe", mine: "Mine", rating: "Rating",
-      notes: "Notes", madeIt: "I made it", made: (n, d) => `Made ${n === 1 ? "once" : n + " times"} · ${d}`, addedBy: (n) => `Added by ${n}` },
+      notes: "Notes", madeIt: "I made it", made: (n, d) => `Made ${n === 1 ? "once" : n + " times"} · ${d}`,
+      posted: (d) => `Posted ${d}`, added: (d, who) => `Added ${d}` + (who ? ` by ${who}` : ""), insta: "Instagram" },
     he: { ing: "מצרכים", steps: "אופן ההכנה", tips: "טיפים", nut: "ערכים תזונתיים", miss: "חסר בסרטון", serves: "מנות", makes: "כמות",
       prep: "הכנה", cook: "בישול", total: "סה״כ", oven: "תנור", start: "מתחילים לבשל", cont: (n) => `ממשיכים · שלב ${n}`,
       watch: "לצפייה בסרטון", page: "דף המתכון", read: "הקראה", stopRead: "עצירה", awake: "המסך נשאר דולק",
       step: (k, n) => `שלב ${k} מתוך ${n}`, next: "הבא", backStep: "הקודם", done: "סיימתי", finished: "בתיאבון", again: "מההתחלה",
       toRecipe: "חזרה למתכון", uses: "צריך", timer: (m) => `טיימר ${m} דק׳`, noAmt: "בלי כמות", calories: "קלוריות", protein: "חלבון",
       carbs: "פחמימות", fat: "שומן", close: "סגירה", notRecipe: "לא מתכון", mine: "שלי", rating: "דירוג", notes: "הערות",
-      madeIt: "הכנתי", made: (n, d) => `הוכן ${n === 1 ? "פעם אחת" : n + " פעמים"} · ${d}`, addedBy: (n) => `נוסף על ידי ${n}` },
+      madeIt: "הכנתי", made: (n, d) => `הוכן ${n === 1 ? "פעם אחת" : n + " פעמים"} · ${d}`,
+      posted: (d) => `פורסם ${d}`, added: (d, who) => `נוסף ${d}` + (who ? ` על ידי ${who}` : ""), insta: "אינסטגרם" },
   };
   const lab = (r) => L[r && r.lang === "he" ? "he" : "en"];
   const dirOf = (r) => (r && r.lang === "he" ? ' dir="rtl" lang="he"' : ' dir="ltr" lang="en"');
@@ -281,22 +287,64 @@
   function visible() {
     const words = norm(query).split(" ").filter(Boolean);
     return recipesOnly()
+      .filter((r) => !creator || r.user === creator)
       .filter((r) => kind === "All" || (kind === "Saved" ? M().saved[r.code] : kind === "Made" ? M().cooked_count[r.code] : r.kind === kind))
-      .filter((r) => words.every((w) => haystack(r).includes(w)));
+      .filter((r) => words.every((w) => haystack(r).includes(w)))
+      .sort(SORTS[sortBy] || SORTS.added);
   }
+  const SORTS = {
+    added: (a, b) => (b.found || 0) - (a.found || 0),
+    posted: (a, b) => (b.posted || 0) - (a.posted || 0),
+    az: (a, b) => shown(a).title.localeCompare(shown(b).title),
+  };
+  function creators() {                               // every creator in the kitchen, most recipes first
+    const n = {};
+    recipesOnly().forEach((r) => { if (r.user) n[r.user] = (n[r.user] || 0) + 1; });
+    return Object.entries(n).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }
+  function filterHTML() {
+    const sorts = [["added", "Added"], ["posted", "Posted"], ["az", "A–Z"]];
+    return `<h3>Sort</h3><div class="chips">${sorts.map(([k, n]) => `<button type="button" data-action="sort" data-sort="${k}" aria-pressed="${k === sortBy}">${n}</button>`).join("")}</div>
+      <h3>Creator</h3><div class="chips"><button type="button" data-action="creator" data-user="" aria-pressed="${!creator}">All</button>${creators().map(([u, n]) =>
+        `<button type="button" data-action="creator" data-user="${esc(u)}" aria-pressed="${u === creator}" dir="ltr">@${esc(u)}<span class="n">${n}</span></button>`).join("")}</div>`;
+  }
+  function openFilter() {
+    const el = document.createElement("div");
+    el.className = "sheet";
+    el.innerHTML = `<div class="panel filter" role="dialog" aria-modal="true" aria-label="Sort and filter"><div class="grip"></div>
+      <div class="bar"><h2>Sort and filter</h2><button type="button" class="btn" data-close>Done</button></div><div class="fbody">${filterHTML()}</div></div>`;
+    const close = () => { el.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-action]");
+      if (b && b.dataset.action === "sort") {
+        sortBy = b.dataset.sort; store.set("sort", sortBy);
+        el.querySelector(".fbody").innerHTML = filterHTML();
+        const g = document.getElementById("grid"); if (g) g.innerHTML = gridHTML();
+        const t = document.querySelector('[data-action="filter"]'); if (t) t.setAttribute("aria-pressed", filtered());
+      } else if (b && b.dataset.action === "creator") {
+        close();
+        location.hash = b.dataset.user ? "#/from/" + encodeURIComponent(b.dataset.user) : "#/";
+      } else if (e.target === el || e.target.closest("[data-close]")) close();
+    });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(el);
+    el.querySelector("[data-close]").focus();
+  }
+  const filtered = () => !!creator || sortBy !== "added";
   function cardHTML(r) {
     const saved = M().saved[r.code], made = M().cooked_count[r.code], rating = M().ratings[r.code];
     return `<li><a class="card" href="#/r/${esc(r.code)}">
       <div class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}${r.complete ? "" : `<span class="flag">${r.lang === "he" ? "חסרות כמויות" : "Missing amounts"}</span>`}
         ${saved || made || rating ? `<span class="marks">${saved ? `<span>${I.markOn}</span>` : ""}${made ? `<span>${I.done}</span>` : ""}${rating ? `<span class="r">${rating}</span>` : ""}</span>` : ""}</div>
-      <div class="txt"${dirOf(shown(r))}><div class="t">${esc(shown(r).title)}</div><div class="by" dir="ltr">@${esc(r.user)}</div></div></a></li>`;
+      <div class="txt"${dirOf(shown(r))}><div class="t">${esc(shown(r).title)}</div><div class="by" dir="ltr">@${esc(r.user)}</div>${sortBy === "posted" && r.posted ? `<div class="by">${esc(day(r.posted, shown(r).lang))}</div>` : ""}</div></a></li>`;
   }
   function gridHTML() {
     const list = visible();
     return list.length ? `<ul class="grid">${list.map(cardHTML).join("")}</ul>` : `<p class="empty">No recipes</p>`;
   }
   function kindsHTML() {
-    const recipes = recipesOnly();
+    const recipes = recipesOnly().filter((r) => !creator || r.user === creator);
     const counts = {};
     recipes.forEach((r) => { counts[r.kind] = (counts[r.kind] || 0) + 1; });
     const order = ["Breakfast", "Mains", "Salads & sides", "Soups", "Bread & dough", "Baking & sweets", "Snacks", "Sauces & dips", "Drinks"];
@@ -305,7 +353,7 @@
     return kinds.map(([k, n]) => `<button type="button" data-action="kind" data-kind="${esc(k)}" aria-pressed="${k === kind}">${esc(k)}<span class="n">${n}</span></button>`).join("");
   }
   function nextHTML() {
-    if (!SUGGEST || !SUGGEST.length || query || kind !== "All") return "";
+    if (!SUGGEST || !SUGGEST.length || query || kind !== "All" || creator) return "";
     const items = SUGGEST.map((s) => [s, byCode(s.code)]).filter(([, r]) => r);
     if (!items.length) return "";
     return `<section class="next" aria-label="Up next"><h2>Up next</h2><ul class="next-row">${items.map(([s, r]) => `<li><a class="mini" href="#/r/${esc(r.code)}">
@@ -319,8 +367,10 @@
     if (LIST.waiting) notes.push(`<div class="note-bar">${LIST.waiting} more on the way</div>`);
     return `<div class="wrap">
       ${topBar()}
-      <div class="search" role="search">${I.search}<input id="q" type="search" placeholder="Search" value="${esc(query)}" autocomplete="off" enterkeyhint="search" aria-label="Search">
+      <div class="searchrow"><div class="search" role="search">${I.search}<input id="q" type="search" placeholder="Search" value="${esc(query)}" autocomplete="off" enterkeyhint="search" aria-label="Search">
         <button type="button" class="clear" data-action="clear" aria-label="Clear"${query ? "" : " hidden"}>${I.x}</button></div>
+        <button type="button" class="btn btn-icon filter" data-action="filter" aria-label="Sort and filter" aria-pressed="${filtered()}">${I.sort}</button></div>
+      ${creator ? `<div class="creator"><span dir="ltr">@${esc(creator)}</span><a class="btn btn-icon" href="#/" aria-label="All creators">${I.x}</a></div>` : ""}
       <nav class="kinds" aria-label="Kinds">${kindsHTML()}</nav>
       ${notes.join("")}
       <div id="next">${nextHTML()}</div>
@@ -394,7 +444,8 @@
           <header class="head">
             <h1 tabindex="-1">${esc(r.title)}</h1>
             ${r.summary ? `<p class="sum">${esc(r.summary)}</p>` : ""}
-            <div class="by" dir="ltr"><a href="${esc(r.reel)}" target="_blank" rel="noopener">@${esc(r.user)}</a>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(l.page)}</a>` : ""}${others && r.added_by ? `<span>${esc(l.addedBy(nameOf(r.added_by)))}</span>` : ""}</div>
+            <div class="by" dir="ltr">${r.user ? `<a href="#/from/${encodeURIComponent(r.user)}">@${esc(r.user)}</a>` : ""}<a href="${esc(r.reel)}" target="_blank" rel="noopener">${esc(l.insta)}</a>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(l.page)}</a>` : ""}</div>
+            <p class="dates">${[r.posted ? l.posted(day(r.posted, r.lang)) : "", r.found ? l.added(day(r.found, r.lang), others && r.added_by ? nameOf(r.added_by) : "") : ""].filter(Boolean).map(esc).join(" · ")}</p>
             ${factsHTML(r, l)}
             ${r.is_recipe !== false && steps.length ? `<div class="actions"><a class="btn btn-accent btn-big" href="#/cook/${esc(r.code)}/${at || 1}">${I.cook}${esc(at ? l.cont(at) : l.start)}</a></div>` : ""}
           </header>
@@ -626,7 +677,7 @@
       else if (page === "history") html = await historyPage(code);
       else if (page === "settings") html = await settingsPage();
       else if (page === "shared") html = await sharedPage();
-      else html = home();
+      else { creator = page === "from" && code ? code : null; html = home(); }
     } catch (e) {
       if (e instanceof SignedOut) { signInPage(); return; }
       app.innerHTML = `<div class="wrap"><header class="top"><a class="mark" href="#/"><img src="icon.svg" alt=""><h1>Matkon</h1></a></header><p class="empty">Can't reach Matkon</p><p style="text-align:center"><button class="btn" type="button" onclick="location.reload()">Try again</button></p></div>`;
@@ -671,7 +722,8 @@
     const [page, code, n] = route();
     const r = cur(code);
     if (act === "lang") { langChoice[code] = b.dataset.to; render(true); return; }
-    if (act === "kind") { kind = b.dataset.kind; document.querySelector(".kinds").innerHTML = kindsHTML(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); }
+    if (act === "filter") openFilter();
+    else if (act === "kind") { kind = b.dataset.kind; document.querySelector(".kinds").innerHTML = kindsHTML(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); }
     else if (act === "clear") { query = ""; const q = document.getElementById("q"); q.value = ""; q.focus(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); b.hidden = true; }
     else if (act === "play") { playing = code; render(true); }
     else if (act === "tick") {

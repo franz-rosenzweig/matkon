@@ -34,7 +34,7 @@ Matkon does the boring part. It watches the reel, writes out what's said, reads 
 - **Only what the reel says.** When a creator doesn't give an amount, the page says "no amount" and lists it under "Not in the reel," instead of guessing. Calories and protein show up only when the reel states them.
 - **Finds the real recipe.** When the caption links the creator's blog or newsletter, that's usually where the amounts are, so Matkon reads it. If the link only goes to a Substack's front page, it searches that Substack for the dish.
 - **Cooking mode.** One step at a time in big letters, with that step's amounts right under it, timers that keep going if the page reloads, and read-aloud.
-- **Search and kinds.** Search by dish, creator or ingredient, and filter by Mains, Baking & sweets, Soups, what you saved and what you've made.
+- **Search, kinds and creators.** Search by dish, creator or ingredient, filter by Mains, Baking & sweets, Soups, what you saved and what you've made, or show one creator's recipes. Sort by when they came in, when they were posted on Instagram, or A–Z. Every recipe says when it was posted and when it was added.
 - **Up next.** Matkon learns what you like from what you save, cook and rate, and suggests what to make: the one you saved and never made, the one you rated 10 and haven't made in a month, something like the dishes you keep coming back to.
 - **It remembers.** Save a recipe, tap "I made it," rate it 1 to 10, write yourself a note ("20g less sugar next time"). Ticked ingredients and the step you're on are remembered too, on every device, so you can start on the tablet and finish on your phone.
 - **History.** What you cooked and when, what you opened lately, and everything Matkon brought in.

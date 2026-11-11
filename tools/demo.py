@@ -183,6 +183,7 @@ def build(state):
                         "-vf", "zoompan=z='min(zoom+0.0008,1.08)':d=150:s=720x1280:fps=25", "-c:v", "libx264",
                         "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(f / "video.mp4")], check=True)
         post = {"code": r["code"], "user": r["user"], "name": "", "caption": "", "found": now - n * 3600,
+                "taken_at": int(now) - (30 + (n * 97) % 400) * 86400,          # made-up posting dates, months back
                 "url": f"https://www.instagram.com/reel/{r['code']}/"}
         rec = {"is_recipe": True, "lang": r.get("lang", "en"), "complete": r.get("complete", True),
                "missing": r.get("missing", []), "main_ingredients": [], "from": {"caption": True, "speech": True, "screen": True},
