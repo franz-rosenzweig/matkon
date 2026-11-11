@@ -30,9 +30,22 @@ The first screen asks for three things: Matkon's address (the one you open in a 
 
 The week plan and the shopping list live on the Matkon server, under your account, so they're the same on the phone, the tablet and the web app (its [Week and List](week-and-list.md) pages), and on anyone else's device signed in to your account.
 
+## Everything else the web has
+
+Since 0.2.0 the app has the same newer features as the web, so the pages for the web describe them for the phone too:
+
+- **Units** (as written, metric or US) in Settings. See [Units](recipes.md#units).
+- **Fix this recipe**, **Share a link**, **Print** and **Collections** in a recipe's menu (the three dots). See [Fixing a recipe](recipes.md#fixing-a-recipe), [Sharing a recipe](recipes.md#sharing-a-recipe) and [Printing](recipes.md#printing). Printing goes through Android's own print screen, which can also save a PDF.
+- **Ask** at the bottom of a recipe. See [Asking about a recipe](recipes.md#asking-about-a-recipe).
+- **What can I make?** and **Surprise me** on Home, and a search that reads the steps and forgives a typo. See [What can I make?](recipes.md#what-can-i-make).
+- **I made it** asks for the amounts and a note, the recipe offers **Again, like last time**, and **History** has the calendar. See [Memory and history](memory-and-history.md).
+- The shopping list sorts itself by aisle (the tag on a line moves it), and a planned recipe moves to another day by holding it and dragging. See [The week and the shopping list](week-and-list.md).
+- The **+** adds a reel, any recipe page, or up to four photos of a recipe. See [Adding recipes](adding-recipes.md).
+- **Download all recipes** in Settings saves every recipe as one file, wherever you pick.
+
 ## Sharing a reel from Instagram
 
-In the Instagram app, tap Share on a reel and pick **Matkon**. The app adds it to the queue and says "Added," "Already on the way" or "Already in Matkon."
+In the Instagram app, tap Share on a reel and pick **Matkon**. The app adds it to the queue and says "Added," "Already on the way" or "Already in Matkon." A recipe page shared from the browser, or photos shared from the gallery, come in the same way.
 
 ## Without a connection
 
