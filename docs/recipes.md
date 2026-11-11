@@ -23,6 +23,8 @@ The top of a recipe has the photo (a still of the finished dish from the reel), 
 
 - **Watch the reel** plays the video right there.
 - **Start cooking** opens [cooking mode](cooking.md). If you were in the middle of it, it says **Continue · step 4**.
+- **Plan** puts it on a day in the next two weeks, and **Add to list** puts its ingredients on the shopping list. See [The week and the shopping list](week-and-list.md).
+- **Amounts** halves it, doubles it or makes it 1½ or 3 times as much. Every number in an amount changes, so "2 portions (about 200g)" becomes "4 portions (about 400g)," and "1 cup" doubled says "2 cups." An amount without a number, like "salt to taste," stays as it is. It's just for that visit, so the next time you open the recipe it's back to 1×.
 - **Ingredients** tick off as you tap them, and the ticks are remembered on all your devices for 12 hours.
 - **Steps** come with a timer button wherever a step gives a time.
 - **Tips** are the creator's own asides.

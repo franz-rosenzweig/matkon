@@ -1,8 +1,9 @@
 /* Matkon: recipe reels as recipe pages.
    Plain JS. Everything comes from the server and needs an account (api/me, api/recipes, api/r/<code>…).
-   Routes:  #/  home  ·  #/r/<code>  a recipe  ·  #/cook/<code>/<n>  cooking  ·  #/history[/<tab>]  ·  #/settings
-   Memory (saved, ticks, the cooking step, notes, ratings, what was cooked and opened) lives on the
-   server, so every device of an account sees the same. The kitchen timer stays on the device. */
+   Routes:  #/  home  ·  #/r/<code>  a recipe  ·  #/cook/<code>/<n>  cooking  ·  #/week  ·  #/list  ·  #/history[/<tab>]  ·  #/settings
+   Memory (saved, ticks, the cooking step, notes, ratings, what was cooked and opened, the week plan and the
+   shopping list) lives on the server, so every device of an account sees the same, the Android app too.
+   The kitchen timer and the ½×–3× amounts stay on the device. */
 (function () {
   "use strict";
 
@@ -53,6 +54,128 @@
     gear: ico('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
     done: ico('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/>'),
     trash: ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+    cal: ico('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+    cart: ico('<path d="M2.5 4h2.6l2.3 11.2h10.8l2.1-8.2H6.2"/><circle cx="9.5" cy="19.6" r="1.3"/><circle cx="17" cy="19.6" r="1.3"/>'),
+    plus: ico('<path d="M12 5v14M5 12h14"/>'),
+    share: ico('<path d="M12 3.5v11M7.5 8L12 3.5 16.5 8"/><path d="M5 12.5V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5"/>'),
+  };
+
+  /* ---------- amounts: ½× to 3×, and added up on the shopping list (the same rules as the Android app) ---------- */
+  const Amt = (() => {
+    const GLYPHS = { "½": 0.5, "⅓": 1 / 3, "⅔": 2 / 3, "¼": 0.25, "¾": 0.75, "⅕": 0.2, "⅛": 0.125, "⅜": 0.375, "⅝": 0.625, "⅞": 0.875 };
+    const G = "½⅓⅔¼¾⅕⅛⅜⅝⅞";
+    const Q = `(?:\\d+\\s+\\d+\\s*/\\s*\\d+|\\d+\\s*/\\s*\\d+|\\d+(?:[.,]\\d+)?\\s*[${G}]?|[${G}])`;
+    const HEBREW = [["חצי", 0.5], ["רבע", 0.25], ["שליש", 1 / 3]];
+    const NICE = [[0, ""], [0.125, "⅛"], [0.25, "¼"], [1 / 3, "⅓"], [0.5, "½"], [2 / 3, "⅔"], [0.75, "¾"], [1, ""]];
+    const SIMPLE = new RegExp(`^(\\d+(?:\\.\\d+)?)?\\s*([${G}])?$`);
+    function value(q) {
+      const s = q.trim().replace(/,/g, ".");
+      let m = s.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+      if (m) return +m[3] ? +m[1] + m[2] / m[3] : null;
+      if ((m = s.match(/^(\d+)\s*\/\s*(\d+)$/))) return +m[2] ? m[1] / m[2] : null;
+      if ((m = s.match(SIMPLE))) {
+        if (!m[1] && !m[2]) return null;
+        return (m[1] ? parseFloat(m[1]) : 0) + (m[2] ? GLYPHS[m[2]] : 0);
+      }
+      return null;
+    }
+    function fmt(x) {
+      if (x >= 20) return String(Math.round(x));
+      const whole = Math.floor(x), frac = x - whole;
+      const near = NICE.reduce((a, b) => (Math.abs(b[0] - frac) < Math.abs(a[0] - frac) ? b : a));
+      if (Math.abs(near[0] - frac) < 0.04) {
+        const w = near[0] === 1 ? whole + 1 : whole;
+        return !near[1] ? String(w) : w === 0 ? near[1] : w + near[1];
+      }
+      return String(Math.round(x * 10) / 10);
+    }
+    const UNITS = [["cup", "cups"], ["clove", "cloves"], ["can", "cans"], ["tablespoon", "tablespoons"], ["teaspoon", "teaspoons"],
+      ["pound", "pounds"], ["ounce", "ounces"], ["slice", "slices"], ["piece", "pieces"], ["stick", "sticks"], ["bunch", "bunches"],
+      ["pinch", "pinches"], ["handful", "handfuls"], ["sprig", "sprigs"], ["package", "packages"], ["jar", "jars"], ["bag", "bags"],
+      ["head", "heads"], ["lb", "lbs"], ["egg", "eggs"], ["sheet", "sheets"], ["thumb", "thumbs"], ["portion", "portions"],
+      ["fillet", "fillets"], ["bowl", "bowls"]];
+    function agree(rest, x) {                          // "2 cup" → "2 cups" after the first number
+      const m = rest.match(/^(\s*)([A-Za-z]+)([\s\S]*)$/);
+      if (!m) return rest;
+      const pair = UNITS.find((p) => p[0] === m[2].toLowerCase() || p[1] === m[2].toLowerCase());
+      if (!pair) return rest;
+      const want = x > 1 ? pair[1] : pair[0];
+      return m[1] + (/[A-Z]/.test(m[2][0]) ? want[0].toUpperCase() + want.slice(1) : want) + m[3];
+    }
+    const COMBO = new RegExp(`(${Q})(?:(\\s*(?:-|–|—|to|עד)\\s*)(${Q}))?`, "g");
+    const ws = (x) => x.match(/ *$/)[0];
+    // every number in the amount × factor ("2 cups (480ml)" → "4 cups (960ml)"); "to taste" stays as it is
+    function scale(amount, factor) {
+      amount = amount || "";
+      if (factor === 1 || !amount.trim()) return amount;
+      let out = "", last = 0, first = null, firstEnd = 0;
+      for (const m of amount.matchAll(COMBO)) {
+        const a = value(m[1]);
+        if (a == null) continue;
+        const sep = m[2] || "", to = m[3] || "";
+        const b = to ? value(to) : null;
+        out += amount.slice(last, m.index) + fmt(a * factor) + ws(m[1]);
+        if (b != null) out += sep + fmt(b * factor) + ws(to);
+        else if (to) out += sep + to;
+        last = m.index + m[0].length;
+        if (first == null) { first = (b != null ? b : a) * factor; firstEnd = out.length; }
+      }
+      if (first == null) {
+        for (const [w, v] of HEBREW) if (new RegExp(`(^|\\s)${w}(\\s|$)`).test(amount)) return amount.replace(w, fmt(v * factor));
+        return amount;
+      }
+      out += amount.slice(last);
+      return out.slice(0, firstEnd) + agree(out.slice(firstEnd), first);
+    }
+    const UNIT_KEY = new Map(Object.entries({
+      cup: "cup", cups: "cup", c: "cup", tbsp: "tbsp", tbs: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", "כף": "tbsp", "כפות": "tbsp",
+      tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp", "כפית": "tsp", "כפיות": "tsp", g: "g", gr: "g", gram: "g", grams: "g", "גרם": "g",
+      kg: "kg", ml: "ml", l: "l", liter: "l", liters: "l", litre: "l", lb: "lb", lbs: "lb", pound: "lb", pounds: "lb", oz: "oz",
+      ounce: "oz", ounces: "oz", clove: "clove", cloves: "clove", can: "can", cans: "can", "כוס": "cup", "כוסות": "cup" }));
+    const UNIT_SHOW = { cup: ["cup", "cups"], clove: ["clove", "cloves"], can: ["can", "cans"] };
+    // the same thing from two recipes is one line: "Eggs" and "egg" both buy eggs
+    const key = (item) => norm(item).split(" ").map((w) =>
+      w.length > 4 && w.endsWith("ies") ? w.slice(0, -3) + "y" : w.length > 4 && w.endsWith("oes") ? w.slice(0, -2)
+        : w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w).join(" ");
+    const LEAD = new RegExp(`^\\s*(${Q})\\s*(.*)$`);
+    function total(amounts) {                          // added up where the units agree, the rest after a +
+      if (amounts.length <= 1) return amounts[0] || "";
+      const sums = new Map(), other = [];
+      for (const a of amounts) {
+        const m = a.match(LEAD);
+        const v = m ? value(m[1]) : null;
+        const rest = m ? m[2].trim().toLowerCase() : "";
+        const unit = rest ? UNIT_KEY.get(rest.split(" ")[0]) : "";
+        if (v == null || unit == null || (unit && rest.includes(" "))) { if (!other.includes(a)) other.push(a); }
+        else sums.set(unit, (sums.get(unit) || 0) + v);
+      }
+      const parts = [...sums].map(([u, v]) => (u ? `${fmt(v)} ${UNIT_SHOW[u] ? UNIT_SHOW[u][v > 1 ? 1 : 0] : u}` : fmt(v)));
+      return parts.concat(other).join(" + ");
+    }
+    function merge(items) {
+      const groups = new Map();
+      items.forEach((i) => { const k = key(i.item); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
+      return [...groups].map(([k, xs]) => ({ key: k, item: xs[0].item, amount: total(xs.map((x) => (x.amount || "").trim()).filter(Boolean)),
+        ids: xs.map((x) => x.id), done: xs.every((x) => x.done), codes: [...new Set(xs.map((x) => x.code).filter(Boolean))] }));
+    }
+    return { scale, merge, total, key, fmt };
+  })();
+  const FACTORS = [[0.5, "½×"], [1, "1×"], [1.5, "1½×"], [2, "2×"], [3, "3×"]];
+  const factors = {};                                  // code → the amounts picked on this visit
+  const factor = (code) => factors[code] || 1;
+
+  /* ---------- days (weeks start on Sunday) ---------- */
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const fromIso = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const today0 = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+  const weekStart = (d) => addDays(d, -d.getDay());
+  const dayName = (d) => { const t = iso(today0()); return iso(d) === t ? "Today" : iso(addDays(d, -1)) === t ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "long" }); };
+  const shortDate = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const newId = () => {
+    const a = new Uint8Array(4);
+    try { crypto.getRandomValues(a); } catch (e) { a.forEach((_, i) => { a[i] = Math.floor(Math.random() * 256); }); }
+    return [...a].map((x) => x.toString(16).padStart(2, "0")).join("");
   };
 
   /* Labels on a recipe page follow the recipe's language. */
@@ -64,7 +187,8 @@
       toRecipe: "Back to the recipe", uses: "Uses", timer: (m) => `Timer ${fmtMin(m)}`, noAmt: "no amount", calories: "Calories",
       protein: "Protein", carbs: "Carbs", fat: "Fat", close: "Close", notRecipe: "Not a recipe", mine: "Mine", rating: "Rating",
       notes: "Notes", madeIt: "I made it", made: (n, d) => `Made ${n === 1 ? "once" : n + " times"} · ${d}`,
-      posted: (d) => `Posted ${d}`, added: (d, who) => `Added ${d}` + (who ? ` by ${who}` : ""), insta: "Instagram" },
+      posted: (d) => `Posted ${d}`, added: (d, who) => `Added ${d}` + (who ? ` by ${who}` : ""), insta: "Instagram",
+      amounts: "Amounts", plan: "Plan", list: "Add to list", onList: "On the list" },
     he: { ing: "מצרכים", steps: "אופן ההכנה", tips: "טיפים", nut: "ערכים תזונתיים", miss: "חסר בסרטון", serves: "מנות", makes: "כמות",
       prep: "הכנה", cook: "בישול", total: "סה״כ", oven: "תנור", start: "מתחילים לבשל", cont: (n) => `ממשיכים · שלב ${n}`,
       watch: "לצפייה בסרטון", page: "דף המתכון", read: "הקראה", stopRead: "עצירה", awake: "המסך נשאר דולק",
@@ -72,7 +196,8 @@
       toRecipe: "חזרה למתכון", uses: "צריך", timer: (m) => `טיימר ${m} דק׳`, noAmt: "בלי כמות", calories: "קלוריות", protein: "חלבון",
       carbs: "פחמימות", fat: "שומן", close: "סגירה", notRecipe: "לא מתכון", mine: "שלי", rating: "דירוג", notes: "הערות",
       madeIt: "הכנתי", made: (n, d) => `הוכן ${n === 1 ? "פעם אחת" : n + " פעמים"} · ${d}`,
-      posted: (d) => `פורסם ${d}`, added: (d, who) => `נוסף ${d}` + (who ? ` על ידי ${who}` : ""), insta: "אינסטגרם" },
+      posted: (d) => `פורסם ${d}`, added: (d, who) => `נוסף ${d}` + (who ? ` על ידי ${who}` : ""), insta: "אינסטגרם",
+      amounts: "כמויות", plan: "לתכנן", list: "לרשימת הקניות", onList: "ברשימה" },
   };
   const lab = (r) => L[r && r.lang === "he" ? "he" : "en"];
   const dirOf = (r) => (r && r.lang === "he" ? ' dir="rtl" lang="he"' : ' dir="ltr" lang="en"');
@@ -99,6 +224,32 @@
       ME.memory = d.memory;
       SUGGEST = null;
     } catch (e) { if (e instanceof SignedOut) signInPage(); }
+  }
+  // the week plan and the shopping list: changed on the page at once, then on the server one at a time, in order
+  const queue = [];
+  let sending = false;
+  function change(op, args, local) {
+    if (local) local(M());
+    paint();
+    queue.push(Object.assign({ op }, args));
+    if (!sending) send();
+  }
+  async function send() {
+    sending = true;
+    let last = null, lost = false;
+    while (queue.length) {
+      try { last = await post("api/me", queue[0]); }
+      catch (e) {
+        if (e instanceof SignedOut) { queue.length = 0; sending = false; signInPage(); return; }
+        lost = true;
+      }
+      queue.shift();
+    }
+    sending = false;
+    if (lost) { try { ME = await getJSON("api/me"); } catch (e) { /* the next visit catches up */ } }
+    else if (last) ME.memory = last.memory;
+    SUGGEST = null;
+    if (!queue.length) paint();
   }
   async function loadAll(force) {
     if (!ME || force) ME = await getJSON("api/me");
@@ -276,8 +427,41 @@
 
   /* ---------- the top bar ---------- */
   function topBar(title) {
+    const here = route()[0];
+    const nav = [["week", "Week", I.cal], ["list", "List", I.cart], ["history", "History", I.history], ["settings", "Settings", I.gear]];
     return `<header class="top"><a class="mark" href="#/"><img src="icon.svg" alt=""><h1>${esc(title || "Matkon")}</h1></a>
-      <nav class="topnav"><a class="btn btn-icon" href="#/history" aria-label="History">${I.history}</a><a class="btn btn-icon" href="#/settings" aria-label="Settings">${I.gear}</a></nav></header>`;
+      <nav class="topnav">${nav.map(([k, n, i]) => `<a class="btn btn-icon" href="#/${k}" aria-label="${n}"${k === here ? ' aria-current="page"' : ""}>${i}</a>`).join("")}</nav></header>`;
+  }
+
+  /* ---------- a bottom sheet, and a line at the bottom with Open ---------- */
+  function sheet(label, inner, onClick) {
+    const el = document.createElement("div");
+    el.className = "sheet";
+    el.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-label="${esc(label)}"><div class="grip"></div>
+      <div class="bar"><h2>${esc(label)}</h2><button type="button" class="btn" data-close>Close</button></div>${inner}</div>`;
+    const close = () => { el.remove(); document.removeEventListener("keydown", onKey); window.removeEventListener("hashchange", close); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    el.addEventListener("click", (e) => { if (e.target === el || e.target.closest("[data-close]")) close(); else onClick(e, close); });
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("hashchange", close);
+    document.body.appendChild(el);
+    el.querySelector("[data-close]").focus();
+    return el;
+  }
+  function pickDay(label, onPick) {
+    const t = today0();
+    const days = Array.from({ length: 14 }, (_, i) => addDays(t, i));
+    sheet(label, `<ul class="days">${days.map((d) => `<li><button type="button" class="dayrow" data-day="${iso(d)}"><span>${esc(dayName(d))}</span><span class="sub">${esc(shortDate(d))}</span></button></li>`).join("")}</ul>`,
+      (e, close) => { const b = e.target.closest("[data-day]"); if (b) { close(); onPick(b.dataset.day); } });
+  }
+  let toastEl = null;
+  function toast(text, href) {
+    if (!toastEl) { toastEl = document.createElement("div"); toastEl.className = "toast"; toastEl.setAttribute("role", "status"); document.body.appendChild(toastEl); }
+    toastEl.innerHTML = `<span dir="auto">${esc(text)}</span>${href ? `<a href="${href}">Open</a>` : ""}`;
+    toastEl.classList.toggle("plain", !href);
+    toastEl.hidden = false;
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { toastEl.hidden = true; }, 5000);
   }
 
   /* ---------- home ---------- */
@@ -386,14 +570,33 @@
     if (r.oven) c.push(`<span class="chip">${I.oven}${esc(l.oven)} ${esc(r.oven)}</span>`);
     return c.length ? `<div class="chips facts">${c.join("")}</div>` : "";
   }
-  function ingHTML(i, key, done, l) {
-    const what = `${i.amount ? `<span class="amt">${esc(i.amount)}</span> ` : ""}${esc(i.item)}${i.note ? `<span class="nt">, ${esc(i.note)}</span>` : ""}`;
+  function ingHTML(i, key, done, l, f) {
+    const amount = Amt.scale(i.amount, f);
+    const what = `${amount ? `<span class="amt">${esc(amount)}</span> ` : ""}${esc(i.item)}${i.note ? `<span class="nt">, ${esc(i.note)}</span>` : ""}`;
     return `<li><button type="button" class="ing${done ? " done" : ""}" data-action="tick" data-k="${key}" aria-pressed="${done}">
       <span class="box">${I.check}</span><span class="what">${what}${i.amount ? "" : ` <span class="none">· ${esc(l.noAmt)}</span>`}</span></button></li>`;
   }
   function ingredientsHTML(r, l) {
-    const t = ticked(r.code);
-    return r.ingredient_groups.map((g, gi) => `${g.name ? `<h3>${esc(g.name)}</h3>` : ""}<ul class="ings">${g.items.map((i, ii) => ingHTML(i, gi + "." + ii, t.has(gi + "." + ii), l)).join("")}</ul>`).join("");
+    const t = ticked(r.code), f = factor(r.code);
+    return r.ingredient_groups.map((g, gi) => `${g.name ? `<h3>${esc(g.name)}</h3>` : ""}<ul class="ings">${g.items.map((i, ii) => ingHTML(i, gi + "." + ii, t.has(gi + "." + ii), l, f)).join("")}</ul>`).join("");
+  }
+  const hasIngs = (r) => r.ingredient_groups.some((g) => g.items.some((i) => i.item && i.item.trim()));
+  function amountsHTML(r, l) {
+    return `<div class="amounts" id="amounts"><span class="lbl">${esc(l.amounts)}</span><div class="chips" dir="ltr">${FACTORS.map(([f, n]) =>
+      `<button type="button" data-action="factor" data-f="${f}" aria-pressed="${f === factor(r.code)}">${n}</button>`).join("")}</div></div>`;
+  }
+  // a recipe's ingredients onto the shopping list, at the amounts on the page
+  function addToList(r) {
+    const f = factor(r.code), at = Math.floor(Date.now() / 1000);
+    const items = r.ingredient_groups.flatMap((g) => g.items).filter((i) => i.item && i.item.trim())
+      .map((i) => ({ id: newId(), item: i.item.trim(), amount: Amt.scale(i.amount, f) }));
+    if (!items.length) return false;
+    change("shop-add", { code: r.code, items }, (m) => { m.shop = (m.shop || []).concat(items.map((i) => Object.assign({ code: r.code, done: false, at }, i))); });
+    return true;
+  }
+  function planAdd(code, day) {
+    const id = newId(), at = Math.floor(Date.now() / 1000);
+    change("plan-add", { id, code, day }, (m) => { m.plan = (m.plan || []).concat([{ id, code, day, at }]); });
   }
   function timerChips(r, s, l) {
     if (!s.timers || !s.timers.length) return "";
@@ -448,10 +651,12 @@
             <p class="dates">${[r.posted ? l.posted(day(r.posted, r.lang)) : "", r.found ? l.added(day(r.found, r.lang), others && r.added_by ? nameOf(r.added_by) : "") : ""].filter(Boolean).map(esc).join(" · ")}</p>
             ${factsHTML(r, l)}
             ${r.is_recipe !== false && steps.length ? `<div class="actions"><a class="btn btn-accent btn-big" href="#/cook/${esc(r.code)}/${at || 1}">${I.cook}${esc(at ? l.cont(at) : l.start)}</a></div>` : ""}
+            ${r.is_recipe !== false ? `<div class="actions more"><button type="button" class="btn" data-action="plan">${I.cal}${esc(l.plan)}</button>${hasIngs(r) ? `<button type="button" class="btn" data-action="to-list">${I.cart}${esc(l.list)}</button>` : ""}</div>
+            ${hasIngs(r) ? amountsHTML(r, l) : ""}` : ""}
           </header>
           ${r.is_recipe === false ? `<p class="empty">${esc(l.notRecipe)}</p>` : `
           <div class="two">
-            ${r.ingredient_groups.length ? `<section class="sec"><h2>${esc(l.ing)}</h2>${ingredientsHTML(r, l)}</section>` : ""}
+            ${r.ingredient_groups.length ? `<section class="sec"><h2>${esc(l.ing)}</h2><div id="ing-list">${ingredientsHTML(r, l)}</div></section>` : ""}
             ${steps.length ? `<section class="sec"><h2>${esc(l.steps)}</h2><ol class="steps">${steps.map((s, i) => `<li><div class="step"><span class="n">${i + 1}</span><div>${esc(s.text)}${timerChips(r, s, l)}</div></div></li>`).join("")}</ol></section>` : ""}
           </div>
           ${r.tips && r.tips.length ? `<section class="sec"><h2>${esc(l.tips)}</h2><ul class="list">${r.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></section>` : ""}
@@ -504,7 +709,7 @@
       <div class="body" aria-live="polite">
         <p class="said" tabindex="-1">${esc(s.text)}</p>
         <div class="side">
-        ${uses.length ? `<div class="uses"><span class="lbl">${esc(l.uses)}</span><ul>${uses.map((i) => `<li><b>${esc(i.amount)}</b> ${esc(i.item)}</li>`).join("")}</ul></div>` : ""}
+        ${uses.length ? `<div class="uses"><span class="lbl">${esc(l.uses)}</span><ul>${uses.map((i) => `<li><b>${esc(Amt.scale(i.amount, factor(r.code)))}</b> ${esc(i.item)}</li>`).join("")}</ul></div>` : ""}
         <div class="tools">${timerChips(r, s, l).replace(/class="chip"/g, 'class="btn"').replace('<div class="chips">', "").replace(/<\/div>$/, "")}
           ${canSpeak ? `<button type="button" class="btn" data-action="read-step" data-i="${k - 1}">${I.speak}${esc(l.read)}</button>` : ""}</div>
         </div>
@@ -557,6 +762,101 @@
     }
     return `<div class="wrap narrow">${topBar("History")}
       <nav class="tabs">${tabs.map(([k, n]) => `<a href="#/history/${k}" aria-current="${k === tab ? "page" : "false"}">${n}</a>`).join("")}</nav>${body}</div>`;
+  }
+
+  /* ---------- the week: this week and next, from Sunday ---------- */
+  function weekPage() {
+    return `<div class="wrap">${topBar("Week")}<div id="live">${weekBody()}</div></div>`;
+  }
+  function weekBody() {
+    const t = today0(), ti = iso(t), start = weekStart(t), end = iso(addDays(start, 7));
+    const plan = {};
+    (M().plan || []).forEach((p) => { (plan[p.day] = plan[p.day] || []).push(p); });
+    const coming = (M().plan || []).some((p) => p.day >= ti && p.day < end && byCode(p.code));
+    const week = (w) => `<section class="sec wk"><div class="wkhead"><h2>${w ? "Next week" : "This week"}</h2>
+        ${!w && coming ? `<button type="button" class="btn" data-action="week-list">${I.cart}Add to list</button>` : ""}</div>
+      ${[0, 1, 2, 3, 4, 5, 6].map((i) => {
+        const d = addDays(start, w * 7 + i), k = iso(d);
+        const rows = (plan[k] || []).map((p) => [p, byCode(p.code)]).filter(([, r]) => r);
+        return `<div class="day${k < ti ? " past" : ""}${k === ti ? " today" : ""}"><div class="dayhead"><b>${esc(dayName(d))}</b><span class="sub">${esc(shortDate(d))}</span>
+            <button type="button" class="btn btn-icon add" data-action="plan-pick" data-day="${k}" aria-label="Add">${I.plus}</button></div>
+          ${rows.length ? `<ul class="hlist">${rows.map(([p, r]) => `<li><a class="hrow" href="#/r/${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
+            <span class="t"${dirOf(shown(r))}>${esc(shown(r).title)}</span></a>
+            <button type="button" class="btn btn-icon del" data-action="plan-move" data-id="${esc(p.id)}" aria-label="Move">${I.cal}</button>
+            <button type="button" class="btn btn-icon del" data-action="plan-remove" data-id="${esc(p.id)}" aria-label="Remove">${I.x}</button></li>`).join("")}</ul>` : ""}</div>`;
+      }).join("")}</section>`;
+    return `<div class="weeks">${week(0)}${week(1)}</div>`;
+  }
+  function pickRecipe(day) {
+    const saved = M().saved;
+    const all = recipesOnly().slice().sort((a, b) => (saved[b.code] ? 1 : 0) - (saved[a.code] ? 1 : 0) || (b.found || 0) - (a.found || 0));
+    const rows = (q) => {
+      const words = norm(q).split(" ").filter(Boolean);
+      const list = all.filter((r) => words.every((w) => haystack(r).includes(w)));
+      return list.length ? list.map((r) => `<li><button type="button" class="hrow" data-pick="${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
+        <span class="t"${dirOf(shown(r))}>${esc(shown(r).title)}</span></button></li>`).join("") : `<li class="empty">No recipes</li>`;
+    };
+    const d = fromIso(day);
+    const el = sheet(`${dayName(d)} · ${shortDate(d)}`, `<div class="pickq"><div class="search">${I.search}<input type="search" placeholder="Search" aria-label="Search" autocomplete="off" enterkeyhint="search"></div></div>
+      <ul class="hlist picks">${rows("")}</ul>`, (e, close) => { const b = e.target.closest("[data-pick]"); if (b) { close(); planAdd(b.dataset.pick, day); } });
+    el.querySelector("input").addEventListener("input", (e) => { el.querySelector(".picks").innerHTML = rows(e.target.value); });
+  }
+  async function weekToList() {
+    const ti = iso(today0()), end = iso(addDays(weekStart(today0()), 7));
+    const coming = (M().plan || []).filter((p) => p.day >= ti && p.day < end && byCode(p.code));
+    let n = 0;
+    for (const p of coming) {
+      try { if (addToList(await loadOne(p.code))) n++; } catch (e) { if (e instanceof SignedOut) return signInPage(); }
+    }
+    if (n) toast("On the list", "#/list");
+  }
+
+  /* ---------- the shopping list ---------- */
+  function listPage() {
+    return `<div class="wrap narrow">${topBar("List")}
+      <form data-form="shop-add" class="addrow"><input name="item" type="text" placeholder="Add" aria-label="Add" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" dir="auto" maxlength="200">
+        <button class="btn btn-icon" type="submit" aria-label="Add">${I.plus}</button></form>
+      <div id="live">${listBody()}</div></div>`;
+  }
+  const shopLines = () => Amt.merge(M().shop || []);
+  function lineHTML(x) {
+    const from = x.codes.map(byCode).filter(Boolean).map((r) => shown(r).title);
+    const ids = esc(x.ids.join(","));
+    return `<li class="line"><button type="button" class="ing${x.done ? " done" : ""}" data-action="shop-tick" data-ids="${ids}" aria-pressed="${x.done}">
+        <span class="box">${I.check}</span><span class="txt"><span class="it" dir="auto">${x.amount ? `<span class="amt">${esc(x.amount)}</span> ` : ""}${esc(x.item)}</span>
+        ${from.length ? `<span class="from" dir="auto">${esc(from.join(" · "))}</span>` : ""}</span></button>
+      <button type="button" class="btn btn-icon del" data-action="shop-remove" data-ids="${ids}" aria-label="Remove">${I.x}</button></li>`;
+  }
+  function listBody() {
+    const lines = shopLines();
+    if (!lines.length) return `<p class="empty">Nothing on the list</p>`;
+    const open = lines.filter((x) => !x.done), done = lines.filter((x) => x.done);
+    return `<div class="listbar">${open.length ? `<button type="button" class="btn" data-action="shop-share">${I.share}${navigator.share ? "Share" : "Copy"}</button>` : ""}
+        <button type="button" class="btn" data-action="shop-clear-done"${done.length ? "" : " disabled"}>Clear done</button>
+        <button type="button" class="btn" data-action="shop-clear-all">Clear all</button></div>
+      ${open.length ? `<section class="sec shop"><ul class="ings">${open.map(lineHTML).join("")}</ul></section>` : ""}
+      ${done.length ? `<section class="sec shop"><h2>Done</h2><ul class="ings">${done.map(lineHTML).join("")}</ul></section>` : ""}`;
+  }
+  async function shareList() {
+    const text = shopLines().filter((x) => !x.done).map((x) => "• " + (x.amount ? x.amount + " " : "") + x.item).join("\n");
+    if (navigator.share) { try { await navigator.share({ text }); } catch (e) { /* closed */ } return; }
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) {                                        // no clipboard over plain http: the old way
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch (e2) { /* nothing more to try */ }
+      ta.remove();
+    }
+    toast("Copied");
+  }
+  // what's on the page now, redrawn after a change here or on another device
+  function paint() {
+    const el = document.getElementById("live");
+    if (!el || !ME) return;
+    const page = route()[0];
+    if (page === "week") el.innerHTML = weekBody();
+    else if (page === "list") el.innerHTML = listBody();
   }
 
   /* ---------- settings ---------- */
@@ -663,7 +963,7 @@
     const [page, code, n] = route();
     const key = location.hash;
     const same = key === lastRoute;
-    if (!same) { stopSpeaking(); if (!keepScroll) playing = null; if (page !== "settings") browserKey = null; }
+    if (!same) { stopSpeaking(); if (!keepScroll) playing = null; if (page !== "settings") browserKey = null; if (toastEl) toastEl.hidden = true; }
     if (!same && page && lastRoute && !lastRoute.replace(/^#\/?/, "")) sessionStorage.setItem("mk.homeY", String(window.scrollY));
     let html, r = null;
     if (page === "join") { signInPage("", "join", { email: code || "", code: n || "" }); lastRoute = key; return; }
@@ -674,6 +974,8 @@
       if (!page && !SUGGEST) getJSON("api/suggest").then((d) => { SUGGEST = d.suggest; const el = document.getElementById("next"); if (el) el.innerHTML = nextHTML(); }).catch(() => {});
       if (page === "r") html = recipePage(r);
       else if (page === "cook") html = cookPage(r, n === "done" ? "done" : parseInt(n, 10) || 1);
+      else if (page === "week") html = weekPage();
+      else if (page === "list") html = listPage();
       else if (page === "history") html = await historyPage(code);
       else if (page === "settings") html = await settingsPage();
       else if (page === "shared") html = await sharedPage();
@@ -685,7 +987,8 @@
     }
     const y = window.scrollY;
     app.innerHTML = html;
-    document.title = r ? `${r.title} · Matkon` : page === "history" ? "History · Matkon" : page === "settings" ? "Settings · Matkon" : "Matkon";
+    const titles = { week: "Week", list: "List", history: "History", settings: "Settings" };
+    document.title = r ? `${r.title} · Matkon` : titles[page] ? `${titles[page]} · Matkon` : "Matkon";
     setWake(page === "cook" || (page === "r" && store.get("awake", true)));
     if (!same && page === "r") remember("view", { code });
     if (!same && page === "cook" && n !== "done") remember("step", { code, n: parseInt(n, 10) || 1 });
@@ -726,6 +1029,30 @@
     else if (act === "kind") { kind = b.dataset.kind; document.querySelector(".kinds").innerHTML = kindsHTML(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); }
     else if (act === "clear") { query = ""; const q = document.getElementById("q"); q.value = ""; q.focus(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); b.hidden = true; }
     else if (act === "play") { playing = code; render(true); }
+    else if (act === "factor" && r) {
+      const f = +b.dataset.f;
+      if (f === 1) delete factors[code]; else factors[code] = f;
+      const l = lab(r);
+      const a = document.getElementById("amounts"); if (a) a.outerHTML = amountsHTML(r, l);
+      const g = document.getElementById("ing-list"); if (g) g.innerHTML = ingredientsHTML(r, l);
+    }
+    else if (act === "plan" && r) pickDay("Plan", (day) => { planAdd(code, day); const d = fromIso(day); toast(dayName(d) + " · " + shortDate(d), "#/week"); });
+    else if (act === "to-list" && r) { if (addToList(r)) toast(lab(r).onList, "#/list"); }
+    else if (act === "plan-pick") pickRecipe(b.dataset.day);
+    else if (act === "plan-move") {
+      const id = b.dataset.id;
+      pickDay("Move", (day) => change("plan-move", { id, day }, (m) => m.plan.forEach((p) => { if (p.id === id) p.day = day; })));
+    }
+    else if (act === "plan-remove") { const id = b.dataset.id; change("plan-remove", { id }, (m) => { m.plan = m.plan.filter((p) => p.id !== id); }); }
+    else if (act === "week-list") weekToList();
+    else if (act === "shop-tick") {
+      const ids = b.dataset.ids.split(","), done = b.getAttribute("aria-pressed") !== "true";
+      change("shop-tick", { ids, done }, (m) => m.shop.forEach((i) => { if (ids.includes(i.id)) i.done = done; }));
+    }
+    else if (act === "shop-remove") { const ids = b.dataset.ids.split(","); change("shop-remove", { ids }, (m) => { m.shop = m.shop.filter((i) => !ids.includes(i.id)); }); }
+    else if (act === "shop-clear-done") change("shop-clear", { done: true }, (m) => { m.shop = m.shop.filter((i) => !i.done); });
+    else if (act === "shop-clear-all") { if (confirm("Clear the whole list?")) change("shop-clear", { done: false }, (m) => { m.shop = []; }); }
+    else if (act === "shop-share") shareList();
     else if (act === "tick") {
       const t = ticked(code), k = b.dataset.k;
       if (t.has(k)) t.delete(k); else t.add(k);
@@ -744,7 +1071,7 @@
     else if (act === "uncook") { await remember("uncook", { id: b.dataset.id }); render(true); }
     else if (act === "read" && r) {
       const l = lab(r);
-      const ings = r.ingredient_groups.flatMap((g) => g.items.map((i) => [i.amount, i.item].filter(Boolean).join(" ")));
+      const ings = r.ingredient_groups.flatMap((g) => g.items.map((i) => [Amt.scale(i.amount, factor(code)), i.item].filter(Boolean).join(" ")));
       speak([r.title + ".", l.ing + ".", ...ings, l.steps + ".", ...r.steps.map((s) => s.text)], "r:" + code, r.lang, () => render(true));
       render(true);
     }
@@ -818,6 +1145,15 @@
       } catch (err) { if (err instanceof SignedOut) signInPage(); else say(err.message, true); }
       return;
     }
+    if (kindOf === "shop-add") {
+      const item = (v.item || "").trim();
+      if (item) {
+        const i = { id: newId(), item, amount: "" };
+        change("shop-add", { items: [i] }, (m) => { m.shop = (m.shop || []).concat([Object.assign({ code: null, done: false, at: Math.floor(Date.now() / 1000) }, i)]); });
+      }
+      f.reset();
+      return;
+    }
     if (kindOf === "name") { if (await setting("name", { name: v.name }, "Saved")) ME = null; }
     else if (kindOf === "password") { if (await setting("password", { old: v.old, new: v.new }, "Password changed")) f.reset(); }
     else if (kindOf === "collection") { if (await setting("collection", { value: v.value }, "Saved")) { ME = null; render(true); } }
@@ -847,9 +1183,10 @@
     // back to the app after a while: what another device did (ticks, step, notes) and new recipes
     if (document.visibilityState !== "visible" || !ME) return;
     Promise.all([getJSON("api/me"), getJSON("api/recipes")]).then(([me, list]) => {
+      if (queue.length) return;                       // a change still on its way: its answer brings the rest
       ME = me; LIST = list; SUGGEST = null;
       const page = route()[0];
-      if (!page || page === "r") render(true);
+      if (!page || page === "r") render(true); else paint();
     }).catch(() => {});
   });
 

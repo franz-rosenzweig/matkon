@@ -379,3 +379,75 @@ body.has-timer .cook .nav { padding-bottom: calc(76px + env(safe-area-inset-bott
 .btn.lang { font-weight: 700; }
 .btn:disabled { opacity: .5; cursor: default; }
 @media (min-width: 1000px) { .cook .uses { font-size: 20px; } .cook .uses .lbl { font-size: 15px; } }
+
+/* ---------- the top bar's page you're on ---------- */
+.top .topnav .btn[aria-current="page"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+@media (max-width: 370px) { .top .topnav { gap: 4px; } .top .topnav .btn { width: 40px; min-height: 40px; } .mark h1 { font-size: 22px; } }
+
+/* ---------- a recipe: Plan, Add to list, the amounts ---------- */
+.actions.more { margin-top: 10px; }
+.actions:not(.more) + .actions.more { margin-top: 0; }
+.amounts { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin: 14px 0 0; }
+.amounts .lbl { color: var(--muted); font-size: 15px; font-weight: 600; }
+.amounts .chips { margin: 0; gap: 6px; flex-wrap: nowrap; }
+.amounts .chips button { min-height: 38px; padding: 0 12px; }
+
+/* ---------- sheets: a day, a recipe ---------- */
+.days, .picks { list-style: none; margin: 0; padding: 0; }
+.dayrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px; padding: 0 4px;
+  border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); font: inherit; font-weight: 600; text-align: start; cursor: pointer; }
+.days li:last-child .dayrow { border-bottom: 0; }
+.dayrow .sub { font-size: 15px; }
+button.hrow { border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+.pickq { position: sticky; top: -8px; z-index: 1; background: var(--card); padding: 2px 0 8px; }
+.pickq .search { margin: 0; }
+.picks .empty { padding: 24px 0; }
+
+/* ---------- the week ---------- */
+.weeks { display: grid; gap: 16px; max-width: 760px; margin: 0 auto; }
+.weeks .sec { margin-top: 0; padding-bottom: 6px; }
+@media (min-width: 1000px) { .weeks { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; align-items: start; } }
+.wkhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 52px; padding-top: 4px; }
+.wkhead h2 { margin: 0; }
+.wkhead .btn { min-height: 40px; font-size: 15px; padding: 0 14px; }
+.day { border-top: 1px solid var(--line); }
+.dayhead { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+.dayhead b { font-weight: 650; }
+.day.past .dayhead b { color: var(--muted); font-weight: 500; }
+.day.today .dayhead b { color: var(--accent); }
+.dayhead .add { margin-inline-start: auto; width: 40px; min-height: 40px; border: 0; background: none; color: var(--accent); }
+.day .hlist { margin: -4px 0 6px; }
+.day .hrow { padding: 6px 0; }
+.day .hrow .pic { width: 46px; height: 46px; }
+.hlist .del svg { width: 20px; height: 20px; }
+
+/* ---------- the shopping list ---------- */
+.addrow { display: flex; gap: 8px; margin: 4px 0 12px; }
+.addrow input { flex: 1; min-width: 0; height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  font: inherit; font-size: 17px; -webkit-appearance: none; appearance: none; }
+.addrow input::placeholder { color: var(--faint); }
+.addrow .btn { width: 48px; height: 48px; flex: none; }
+.listbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 4px; }
+.listbar .btn { min-height: 40px; font-size: 15px; padding: 0 14px; }
+.sec.shop { padding-top: 2px; padding-bottom: 4px; }
+.sec.shop h2 { margin-bottom: 0; }
+.line { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--line); }
+.shop .ings li.line:last-child { border-bottom: 0; }
+.line .ing { flex: 1; min-width: 0; border-bottom: 0; padding: 12px 0; align-items: center; }
+.line .ing .box { margin-top: 0; }
+.line .txt { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.line .from { color: var(--muted); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.line .it, .line .from { text-align: left; }            /* a Hebrew line reads right to left, next to its box like the rest */
+.line .ing.done .it { color: var(--faint); text-decoration: line-through; }
+.line .ing.done .from { color: var(--faint); }
+.line .del { flex: none; width: 44px; min-height: 44px; border: 0; background: none; color: var(--faint); }
+.line .del svg { width: 18px; height: 18px; }
+
+/* ---------- a line at the bottom, with Open ---------- */
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 25;
+  display: flex; align-items: center; gap: 14px; padding: 6px 6px 6px 18px; border-radius: 999px; background: var(--ink); color: var(--bg);
+  font-weight: 600; font-size: 15px; max-width: calc(100vw - 32px); box-shadow: 0 6px 24px rgba(0, 0, 0, .25); white-space: nowrap; }
+.toast.plain { padding: 10px 18px; }
+.toast span { overflow: hidden; text-overflow: ellipsis; }
+.toast a { flex: none; display: grid; place-items: center; min-height: 36px; padding: 0 16px; border-radius: 999px; background: var(--bg); color: var(--ink); text-decoration: none; font-weight: 700; }
+body.has-timer .toast { bottom: calc(76px + env(safe-area-inset-bottom)); }

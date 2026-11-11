@@ -14,6 +14,7 @@ Matkon remembers things for each account, on the server, so your phone, your tab
 - **Notes:** your own words under "Mine". They save as you type.
 - **Ticked ingredients and the step you're on,** for 12 hours, so the next time you cook it starts fresh.
 - **What you opened lately.**
+- **The week plan and the shopping list.** See [The week and the shopping list](week-and-list.md).
 
 For the owner, the rating, "made" and the notes also go into the recipe's Obsidian note. See [Obsidian notes](obsidian-notes.md).
 

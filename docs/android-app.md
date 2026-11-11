@@ -28,7 +28,7 @@ The first screen asks for three things: Matkon's address (the one you open in a 
 
 **List** is the shopping list. **Add to list** on a recipe puts its ingredients on it at the amounts you're looking at, and the same thing from different recipes is added up where the units agree ("1 cup" and "½ cup" of rice become "1½ cups"). Tap a line to tick it off, type at the top to add something that isn't from a recipe, and share the list as text from the top bar.
 
-The week plan and the shopping list live on the Matkon server, under your account, so they're the same on the phone and the tablet, and on anyone else's device signed in to your account. The web app doesn't show them yet.
+The week plan and the shopping list live on the Matkon server, under your account, so they're the same on the phone, the tablet and the web app (its [Week and List](week-and-list.md) pages), and on anyone else's device signed in to your account.
 
 ## Sharing a reel from Instagram
 

@@ -215,6 +215,15 @@ def remembered(state):
                    {"id": "a3", "code": "demo-pancakes", "at": time.time() - 6 * day}, {"id": "a4", "code": "demo-cookies", "at": time.time() - 30 * day},
                    {"id": "a5", "code": "demo-soup", "at": time.time() - 12 * day}]
     m["viewed"] = [[c, time.time() - i * 5400] for i, c in enumerate(["demo-cookies", "demo-shakshuka", "demo-salad", "demo-ramen", "demo-hummus"])]
+    on = lambda n: time.strftime("%Y-%m-%d", time.localtime(time.time() + n * day))
+    m["plan"] = [{"id": f"{n:08x}", "code": c, "day": on(k), "at": int(time.time())} for n, (c, k) in enumerate(
+        [("demo-cookies", -1), ("demo-ramen", 0), ("demo-salad", 1), ("demo-shakshuka", 2), ("demo-pappardelle", 3), ("demo-pancakes", 4), ("demo-soup", 6)])]
+    shop = [("demo-ramen", "eggs", "2"), ("demo-ramen", "white miso", "2 tbsp"), ("demo-ramen", "baby bok choy", "2 heads"), ("demo-ramen", "garlic", "1 clove"),
+            ("demo-soup", "tomatoes", "1kg"), ("demo-soup", "garlic", "1 clove"), ("demo-soup", "vegetable stock", "2 cups (480ml)"), ("demo-soup", "basil", "a handful"),
+            ("demo-cookies", "egg", "1"), ("demo-cookies", "dark chocolate", "200g"), ("demo-shakshuka", "ביצים", "6"), ("demo-shakshuka", "שמן זית", "2 כפות"),
+            (None, "Coffee beans", ""), (None, "Paper towels", "")]
+    m["shop"] = [{"id": f"{n + 100:08x}", "item": i, "amount": a, "code": c, "done": i in ("basil", "Coffee beans"), "at": int(time.time())}
+                 for n, (c, i, a) in enumerate(shop)]
     memory._save("sam", m)
     runs = [{"at": time.time() - 3 * 3600, "kind": "sync", "found": [{"code": "demo-ramen", "by": "sam"}, {"code": "demo-shakshuka", "by": "sam"}],
              "made": [{"code": "demo-ramen", "title": ""}, {"code": "demo-shakshuka", "title": ""}], "failed": []},

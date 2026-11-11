@@ -135,7 +135,8 @@ def main():
 
     # single phones for the guide pages in docs/
     for name, out in [("signin", "signin.png"), ("join", "join.png"), ("cook", "cook.png"), ("he-en", "english.png"),
-                      ("settings", "settings.png"), ("history", "history.png"), ("home", "home.png")]:
+                      ("settings", "settings.png"), ("history", "history.png"), ("home", "home.png"),
+                      ("week", "week.png"), ("list", "list.png")]:
         if (shots / f"{name}.png").exists():
             p, _ = shadowed(phone(shots / f"{name}.png", 1200), blur=30, offset=(0, 16), alpha=60)
             save(p, out, 520)

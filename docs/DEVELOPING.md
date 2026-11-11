@@ -54,7 +54,8 @@ python3 tools/demo.py 127.0.0.1 8519 &
 node tools/shot.js http://127.0.0.1:8519/ /tmp/shots home:390x844 home-tab:1317x823 \
   "ramen:390x844:#/r/demo-ramen" "cookies-tab:1317x823:#/r/demo-cookies" "cook:390x844:#/cook/demo-pancakes/4" \
   "cook-dark:390x844:dark:#/cook/demo-ramen/1" "he:390x844:dark:#/r/demo-shakshuka" \
-  "he-cook:390x844:dark:#/cook/demo-shakshuka/5" "missing:390x844:full:#/r/demo-spaghetti"
+  "he-cook:390x844:dark:#/cook/demo-shakshuka/5" "missing:390x844:full:#/r/demo-spaghetti" \
+  "week:390x844:#/week" "list:390x844:#/list"
 python3 tools/readme_images.py /tmp/shots
 ```
 

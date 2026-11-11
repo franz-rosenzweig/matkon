@@ -12,6 +12,7 @@ These pages are how Matkon works, written down. It takes the cooking reels I sav
 ### Using it
 - [Recipes](recipes.md): the home page, search, a recipe, the reel, and Hebrew or English
 - [Cooking](cooking.md): one step at a time, with the amounts, timers and read-aloud
+- [The week and the shopping list](week-and-list.md): planning what to make, and a list that adds up the same thing from different recipes
 - [Memory and history](memory-and-history.md): saving, "I made it", ratings, notes, Up next, and History
 - [The Android app](android-app.md): Matkon on a phone or a tablet, with cook mode, alarm timers, the week and the shopping list
 - [The browser extension](browser-extension.md): how your saved reels get from Instagram into Matkon, and setting it up
