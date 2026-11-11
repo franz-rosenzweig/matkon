@@ -9,7 +9,7 @@ Matkon remembers things for each account, on the server, so your phone, your tab
 ## What it remembers
 
 - **Saved:** the bookmark at the top of a recipe. Saved recipes have their own kind on the home page.
-- **Made:** "I made it" on a recipe (or **Done** at the end of cooking mode) counts it, with the date. The recipe then says "Made 3 times · 2 Nov".
+- **Made:** "I made it" on a recipe (or **Done** at the end of cooking mode) counts it, with the date. "I made it" asks for the amounts you made (½× to 3×) and a note for that time ("too salty", "doubled it for guests"), both optional. The recipe then says "Made 3 times · 2 Nov", lists the times with a note or other amounts, and offers **Again, like last time · 2×** to start cooking at the amounts you used before.
 - **Rating:** 1 to 10, under "Mine" on the recipe. Tap the same number again to take it away.
 - **Notes:** your own words under "Mine". They save as you type.
 - **Ticked ingredients and the step you're on,** for 12 hours, so the next time you cook it starts fresh.
@@ -35,7 +35,7 @@ The clock at the top of every page opens History, with three tabs:
 
 <p align="center"><img src="images/history.png" width="300" alt="History, Cooked: five recipes with the dates they were made"></p>
 
-- **Cooked:** everything you made, newest first, with the date. The bin on a line takes it away, for the time you tapped "I made it" by mistake.
+- **Cooked:** a calendar of the month with a little photo on every day you cooked (the arrows go back through earlier months), and under it everything you made, newest first, with the date, the amounts and your note. The pencil changes the note, and the bin takes the line away, for the time you tapped "I made it" by mistake.
 - **Viewed:** what you opened lately.
 - **Imported:** every time Matkon made recipes, with who added them, and anything that went wrong (a reel it couldn't make a recipe from, for one).
 

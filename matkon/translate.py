@@ -4,6 +4,7 @@ Claude gets the recipe as JSON and gives back the same JSON with the words in En
 groups, items and steps in the same order (so ticked ingredients and the cooking step still line up),
 the same numbers and timers. Anything that doesn't line up is thrown away and tried again next run.
 """
+import hashlib
 import json
 
 from . import recipe
@@ -27,6 +28,13 @@ Recipe:
 """
 
 
+def fingerprint(r):
+    """What the English copy was made from (its "source"), so an edited Hebrew recipe gets a new one
+    only when the Hebrew changed."""
+    src = json.dumps({k: r.get(k) for k in FIELDS}, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(src.encode()).hexdigest()[:16]
+
+
 def _shape(r):
     return ([len(g["items"]) for g in r.get("ingredient_groups", [])], len(r.get("steps", [])), len(r.get("tips", [])),
             len(r.get("missing", [])), [s.get("timers") for s in r.get("steps", [])])
@@ -43,4 +51,4 @@ def to_english(r, model=None):
         s_out["timers"] = s_in.get("timers", [])
     if _shape(out) != _shape(r):
         raise RuntimeError("the English version doesn't line up with the Hebrew one")
-    return {k: out.get(k) for k in FIELDS} | {"lang": "en", "translated_from": r.get("lang")}
+    return {k: out.get(k) for k in FIELDS} | {"lang": "en", "translated_from": r.get("lang"), "source": fingerprint(r)}

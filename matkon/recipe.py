@@ -1,9 +1,10 @@
-"""Turning a reel into a recipe, with Claude.
+"""Turning a reel into a recipe, with Claude (or a recipe page, or photos of a recipe: sources.py).
 
 Claude gets the caption, the transcript and the frame sheets in one message and no tools at all
 (claude --print, --tools "", images sent inline), and answers with one JSON object. The rule that
 matters: only what the reel gives. An amount the reel doesn't say stays empty; nutrition numbers
-are copied only as the reel states them.
+are copied only as the reel states them. A page or photos get their own prompt with the same rule
+and the same answer.
 """
 import base64
 import json
@@ -14,6 +15,30 @@ from . import config
 
 KINDS = ["Breakfast", "Mains", "Salads & sides", "Soups", "Bread & dough", "Baking & sweets",
          "Snacks", "Sauces & dips", "Drinks"]
+
+# the answer's shape, the same for every source (a reel adds "from" and "photo_at")
+FIELDS = """  "is_recipe": true,
+  "lang": "en or he",
+  "title": "the dish's name",
+  "summary": "one plain sentence: what the dish is",
+  "kind": "one of: {kinds}",
+  "cuisine": "",
+  "tags": ["like: passover, vegan, air fryer, no-bake"],
+  "servings": "",
+  "time": {{"prep": "", "cook": "", "total": ""}},
+  "oven": "",
+  "ingredient_groups": [{{"name": "", "items": [{{"amount": "", "item": "", "note": ""}}]}}],
+  "steps": [{{"text": "", "timers": []}}],
+  "tips": [],
+  "nutrition": {{"per": "", "calories": "", "protein": "", "carbs": "", "fat": "", "other": ""}},
+  "main_ingredients": ["three to six plain words"],
+  "complete": true,
+  "missing": ["short phrases, like: how much flour, oven temperature"]"""
+
+
+def _answer(*more):
+    return "Answer with one JSON object and nothing else:\n{{\n" + ",\n".join((FIELDS,) + more) + "\n}}"
+
 
 PROMPT = """You turn a saved Instagram cooking reel into a recipe someone can cook from.
 
@@ -35,28 +60,8 @@ Rules:
 8. "photo_at": the time, in seconds, of the frame where the finished dish fills most of the picture: not a frame where a person is the main thing in it, and ideally with no words over it. If no frame shows the finished dish, pick the best one of the food.
 9. "tags": two to four, plain lowercase words.
 
-Answer with one JSON object and nothing else:
-{{
-  "is_recipe": true,
-  "lang": "en or he",
-  "title": "the dish's name",
-  "summary": "one plain sentence: what the dish is",
-  "kind": "one of: {kinds}",
-  "cuisine": "",
-  "tags": ["like: passover, vegan, air fryer, no-bake"],
-  "servings": "",
-  "time": {{"prep": "", "cook": "", "total": ""}},
-  "oven": "",
-  "ingredient_groups": [{{"name": "", "items": [{{"amount": "", "item": "", "note": ""}}]}}],
-  "steps": [{{"text": "", "timers": []}}],
-  "tips": [],
-  "nutrition": {{"per": "", "calories": "", "protein": "", "carbs": "", "fat": "", "other": ""}},
-  "main_ingredients": ["three to six plain words"],
-  "complete": true,
-  "missing": ["short phrases, like: how much flour, oven temperature"],
-  "from": {{"caption": true, "speech": true, "screen": true}},
-  "photo_at": "seconds: one of the frame times under Sheets"
-}}
+""" + _answer('  "from": {{"caption": true, "speech": true, "screen": true}}',
+              '  "photo_at": "seconds: one of the frame times under Sheets"') + """
 
 Caption:
 <<<
@@ -95,6 +100,68 @@ def build_message(post, tr, sheets, folder, linked_text="(none)"):
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                      "data": base64.b64encode((folder / "sheets" / s["file"]).read_bytes()).decode()}})
     content.append({"type": "text", "text": text})
+    return {"type": "user", "message": {"role": "user", "content": content}}
+
+
+WEB_PROMPT = """You turn a recipe page from the web into a recipe someone can cook from.
+
+You have the page at {url}{site}, under "Page": the recipe data the page publishes for search engines (schema.org: the ingredients and steps as the site wrote them) when it has any, and the page's text, which can be cut short by a paywall and can hold the writer's story, ads, readers' comments and other recipes around the main one.
+
+Rules:
+1. Use only what the page's own recipe gives: its recipe data, and the writer's words around it. Readers' comments don't count. When there's recipe data, follow it for the ingredients, amounts and steps, and take the writer's notes, tips and swaps from the text. Never estimate, assume or fill in an amount, a time, a temperature or a serving count. If the page doesn't give an ingredient's amount, leave "amount" empty. If the data and the text disagree, follow the data and add a tip that says what the text says instead.
+2. Nutrition (calories, protein and so on): copy it only exactly as the page states it. If the page doesn't state it, leave "nutrition" empty.
+3. If the page gives only part of the recipe (a paywall, "the full recipe is in my book"), still write down everything it does give, set "complete" to false, and list in "missing" what a cook would still need. "complete" is true only when someone could cook it from this page alone: every ingredient with its amount (or "to taste"), and the steps.
+4. If the page isn't a recipe at all (an article, a shop, a list of recipes, an error or sign-in page), set "is_recipe" to false and fill only "title" and "summary". When it holds several recipes, take the one the page is about (the one its title names); its parts (a sauce, a dough) are ingredient groups.
+5. Language: if the page is in Hebrew, write the whole recipe in Hebrew. Otherwise write it in English, translating whatever is in another language. A dish's own name stays as the page calls it (Shakshuka, Pad Kra Pao, Tarte Tatin).
+6. Steps: short, clear, in order, as the page gives them, each keeping the times and temperatures the page gives for it. The writer's asides and tips go in "tips", not in the steps; leave out the story, the ads and the comments. Keep units as given; don't convert them. An ingredient's "note" is a few words at most (chopped, at room temperature); if you can't tell what an ingredient is, write your best plain name for it and put the question in "missing".
+7. "time" and "servings": only as stated; don't add times up or work anything out.
+   "timers": whole minutes, only where a step itself states a time ("bake 20 to 25 minutes" gives [20, 25]).
+8. "tags": two to four, plain lowercase words.
+
+""" + _answer() + """
+
+Page:
+<<<
+{page}
+>>>
+"""
+
+PHOTO_PROMPT = """You turn photos of a recipe into a recipe someone can cook from: a page of a cookbook or a magazine, a handwritten card, a printout, a screenshot.
+
+{have}
+
+Rules:
+1. Use only what's written in the photos, and what they plainly show. Never estimate, assume or fill in an amount, a time, a temperature or a serving count. If the photos don't give an ingredient's amount, leave "amount" empty.
+2. Handwriting and blurry print: write down what you can read. When a word or a number can't be read for sure, don't guess it: leave that amount empty (or write the word as well as you can make it out), and say in "missing" what couldn't be read ("the amount of sugar can't be read").
+3. Nutrition (calories, protein and so on): copy it only exactly as the photos state it. If they don't state it, leave "nutrition" empty.
+4. If part of the recipe is cut off, or on a page that isn't here, still write down everything the photos do give, set "complete" to false, and list in "missing" what a cook would still need. "complete" is true only when someone could cook it from these photos alone: every ingredient with its amount (or "to taste"), and the steps.
+5. If the photos hold no recipe (a finished dish with nothing written, something that isn't food), set "is_recipe" to false and fill only "title" and "summary". When they hold several recipes, take the one that fills most of them (or the first); its parts (a sauce, a dough) are ingredient groups.
+6. Language: if the recipe is written in Hebrew, write the whole recipe in Hebrew. Otherwise write it in English, translating whatever is in another language. A dish's own name stays as it's written (Shakshuka, Pad Kra Pao, Tarte Tatin).
+7. Steps: short, clear, in order, as written, each keeping the times and temperatures written for it. Asides and tips go in "tips", not in the steps. Keep units as given, old ones too (a glass, a knob of butter); don't convert them. An ingredient's "note" is a few words at most (chopped, at room temperature); if you can't tell what an ingredient is, write your best plain name for it and put the question in "missing".
+8. "time" and "servings": only as stated; don't add times up or work anything out.
+   "timers": whole minutes, only where a step itself states a time ("bake 20 to 25 minutes" gives [20, 25]).
+9. "tags": two to four, plain lowercase words.
+
+""" + _answer() + "\n"
+
+
+def build_web_message(post, page_text):
+    """A recipe page's message: the page alone, as text (linked.py read it)."""
+    site = post.get("name") or post.get("user")
+    text = WEB_PROMPT.format(url=post.get("url") or "", site=f" ({site})" if site else "", kinds=", ".join(KINDS), page=page_text)
+    return {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": text}]}}
+
+
+def build_photo_message(images):
+    """Photos of a recipe: each one inline (JPEG files), then the prompt."""
+    content = []
+    for i, p in enumerate(images):
+        content.append({"type": "text", "text": f"Photo {i + 1}"})
+        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                     "data": base64.b64encode(p.read_bytes()).decode()}})
+    have = ("You have one photo." if len(images) == 1 else
+            f"You have {len(images)} photos, in order: a later one can be the back of the card or the next page.")
+    content.append({"type": "text", "text": PHOTO_PROMPT.format(have=have, kinds=", ".join(KINDS))})
     return {"type": "user", "message": {"role": "user", "content": content}}
 
 

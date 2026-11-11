@@ -3,7 +3,8 @@
 Listens where MATKON_HOSTS says (localhost by default; add a private address, like a tailnet one, to
 reach it from a phone, or put a tunnel in front of it) on MATKON_PORT (8510).
 
-Everyone signs in (accounts.py); only the app's own files and the sign-in answer without it. Every
+Everyone signs in (accounts.py); only the app's own files, the sign-in and a recipe shared by its link
+(/s/<token>, share.py) answer without it. Every
 change is a POST with JSON and an X-Matkon header, which a page on another site can't send. Videos
 are served with byte ranges, which Safari needs to play them.
 
@@ -26,7 +27,7 @@ from pathlib import Path
 
 import urllib.parse
 
-from . import accounts, config, instagram, kitchen, mail, memory, reel, store, vault
+from . import accounts, ask, config, cookbook, edits, instagram, kitchen, mail, memory, reel, share, sources, store, vault
 
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "app"
@@ -69,7 +70,9 @@ def recipe_full(code, lang=None):
     langs = [orig] + [x for x in ("en", "he") if x != orig and (f / f"recipe.{x}.json").exists()]
     if lang and lang != orig and lang in langs:
         r = {**r, **(_read(f / f"recipe.{lang}.json") or {})}
-    return {**r, "code": code, "langs": langs, "original_lang": orig, "user": p.get("user", ""), "name": p.get("name", ""), "reel": p.get("url"),
+    r, edited = edits.lay(f, r, lang if lang in langs else orig, orig)     # fixed by hand in the app: the fix wins
+    return {**r, "edited": edited, "code": code, "langs": langs, "original_lang": orig, "user": p.get("user", ""), "name": p.get("name", ""), "reel": p.get("url"),
+            "source": store.source(p),                    # reel, web (reel is then the page's address) or photo (reel is null)
             "found": p.get("found", 0), "posted": p.get("taken_at"), "added_by": p.get("added_by") or accounts.owner(), "photo": _photo(code, r),
             "video": f"m/{code}/video.mp4" if (f / "video.mp4").exists() else None}
 
@@ -83,13 +86,35 @@ def index():
         if not r:
             waiting += (f / "post.json").exists()
             continue
-        en = _read(f / "recipe.en.json") if r.get("lang") != "en" else None
+        en = recipe_full(f.name, "en") if r.get("lang") != "en" and "en" in r["langs"] else None     # with its edit too
         out.append({k: r.get(k) for k in ("code", "title", "summary", "kind", "lang", "user", "tags", "cuisine", "complete",
-                                          "is_recipe", "found", "posted", "name", "photo", "time", "servings", "main_ingredients", "added_by")}
-                   | {"items": [i["item"] for g in r.get("ingredient_groups", []) for i in g["items"]]}
-                   | ({"title_en": en.get("title"), "items_en": [i["item"] for g in en.get("ingredient_groups", []) for i in g["items"]]} if en else {}))
+                                          "is_recipe", "found", "posted", "name", "photo", "time", "servings", "main_ingredients", "added_by",
+                                          "source")}
+                   | {"items": [i["item"] for g in r.get("ingredient_groups", []) for i in g["items"]], "text": _words(r)}
+                   | ({"title_en": en.get("title"), "items_en": [i["item"] for g in en.get("ingredient_groups", []) for i in g["items"]],
+                       "text_en": _words(en)} if en else {}))
     out.sort(key=lambda x: -(x.get("found") or 0))
     return {"recipes": out, "waiting": waiting}
+
+
+def _words(r):
+    """A recipe's steps and tips as one text, for searching inside them."""
+    return "\n".join([s.get("text", "") for s in r.get("steps") or []] + list(r.get("tips") or []))
+
+
+def recipe_for(aid, code, lang=None):
+    """The recipe as this account sees it (GET /api/r/<code>): in `lang`, else in English when the account
+    reads Hebrew recipes in English; without nutrition when it doesn't want the numbers; with whether
+    it may fix it (can_edit) and its shared link (share). None when there's no such recipe."""
+    settings = memory.view(aid)["settings"]
+    r = recipe_full(code, lang or ("en" if settings.get("english") else None)) if CODE.match(code or "") else None
+    if not r:
+        return None
+    if not settings.get("nutrition", True):
+        r["nutrition"] = {}                       # this account doesn't see the numbers
+    r["can_edit"] = edits.can_edit(aid, r.get("added_by"))
+    r["share"] = share.url_of(code)
+    return r
 
 
 def job(args, name):
@@ -212,9 +237,9 @@ class Handler(BaseHTTPRequestHandler):
         secure = "; Secure" if self.https() else ""
         return f"{accounts.COOKIE}={value}; Path=/; Max-Age={age}; HttpOnly; SameSite=Lax{secure}"
 
-    def body(self):
+    def body(self, limit=2_000_000):
         n = int(self.headers.get("Content-Length") or 0)
-        if n > 2_000_000:
+        if n > limit:
             self.close_connection = True
             raise ValueError("too big")
         try:
@@ -229,6 +254,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        m = re.match(r"^/s/([\w-]{1,64})(/photo)?$", path)
+        if m:                                             # a shared recipe: the one thing that needs no sign-in
+            return self.shared(m.group(1), bool(m.group(2)))
         if not path.startswith(("/api/", "/m/")):
             name = "index.html" if path in ("/", "") else path.lstrip("/")
             f = (APP / name).resolve()
@@ -268,17 +296,14 @@ class Handler(BaseHTTPRequestHandler):
                 out["initial_password"] = (config.STATE / "initial-password.txt").exists()
                 out["invites"] = accounts.invites()
                 out["mail"] = mail.available()
+                out["households"] = memory.households()
             return self._json(out)
         m = re.match(r"^/api/r/([\w-]+)$", path)
         if m:
-            settings = memory.view(aid)["settings"]
-            want = (urllib.parse.parse_qs(self.path.split("?", 1)[1]).get("lang", [None])[0] if "?" in self.path else None)
-            r = recipe_full(m.group(1), want or ("en" if settings.get("english") else None)) if CODE.match(m.group(1)) else None
-            if not r:
-                return self._error(404, "not here")
-            if not settings.get("nutrition", True):
-                r["nutrition"] = {}                       # this account doesn't see the numbers
-            return self._json(r)
+            r = recipe_for(aid, m.group(1), self.query("lang"))
+            return self._json(r) if r else self._error(404, "not here")
+        if path == "/api/export":
+            return self.export(aid)
         m = re.match(r"^/m/([\w-]+)/([\w.]+)$", path)
         if m and CODE.match(m.group(1)) and m.group(2) in MEDIA:
             f = config.REELS / m.group(1) / m.group(2)
@@ -295,8 +320,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(403, "not from Matkon")
         if path.startswith("/api/ext/"):
             return self.ext(path)
+        big = path == "/api/add-photo"                # photos of a recipe: up to 30 MB, and only once signed in
+        if big and not self.account():
+            self.close_connection = True
+            return self._error(401, "signed out")
         try:
-            b = self.body()
+            b = self.body(sources.MAX_BODY if big else 2_000_000)
         except ValueError as e:
             return self._error(400, str(e))
         if path == "/api/signin":
@@ -329,9 +358,103 @@ class Handler(BaseHTTPRequestHandler):
                 if op == "password":                      # the old cookie stopped working: a new one
                     return self._json({"ok": True}, extra={"Set-Cookie": self.set_cookie(accounts.cookie(aid), accounts.YEAR)})
                 return self._json(out or {"ok": True})
+            m = re.match(r"^/api/r/([\w-]+)/edit$", path)
+            if m:
+                return self.edit(aid, m.group(1), b)
+            if path == "/api/ask":
+                return self.answer(aid, b)
+            if path == "/api/add-link":
+                return self._json(self.add_link(aid, b))
+            if path == "/api/add-photo":
+                out = sources.add_photos(b.get("images"), aid)
+                if not out["done"]:
+                    job(["sync", "--no-instagram"], "sync")   # the recipe, now (run.py's lock keeps it to one run)
+                return self._json(out)
         except ValueError as e:
             return self._error(400, str(e))
         return self._error(404, "not here")
+
+    def query(self, key):
+        return urllib.parse.parse_qs(self.path.split("?", 1)[1]).get(key, [None])[0] if "?" in self.path else None
+
+    # ---- fixing, asking about, sharing and exporting recipes ----
+
+    def edit(self, aid, code, b):
+        """POST /api/r/<code>/edit: {"lang", "recipe"} keeps a fix of the recipe in that language,
+        {"lang", "revert": true} takes it away. Answers with the recipe as GET /api/r/<code>?lang= does."""
+        f = config.REELS / code
+        r = recipe_full(code) if CODE.match(code) else None
+        if not r:
+            return self._error(404, "not here")
+        if not edits.can_edit(aid, r.get("added_by")):
+            return self._error(403, "Only the kitchen's owner or whoever added this recipe can change it.")
+        lang = b.get("lang")
+        if lang not in r["langs"]:
+            raise ValueError("This recipe has no version in that language.")
+        if b.get("revert"):
+            changed = edits.revert(f, lang)
+        else:
+            edits.save(f, lang, edits.clean(b.get("recipe")), aid)
+            changed = True
+        if changed:                                       # the note, the English copy and Cookbook's, in the background
+            job(["edited", code, edits.stamp(f)], "edits")
+        return self._json(recipe_for(aid, code, lang))
+
+    def answer(self, aid, b):
+        """POST /api/ask: a question about a recipe, answered by Claude (ask.py)."""
+        code = str(b.get("code") or "")
+        r = recipe_for(aid, code, b.get("lang") if isinstance(b.get("lang"), str) else None)
+        if not r:
+            return self._error(404, "not here")
+        q = b.get("question")
+        q = q.strip() if isinstance(q, str) else ""
+        if not q:
+            raise ValueError("What's the question?")
+        if len(q) > ask.MAX_QUESTION:
+            raise ValueError(f"A question is {ask.MAX_QUESTION} characters at most.")
+        history = b.get("history") or []
+        if not isinstance(history, list):
+            raise ValueError("history is a list.")
+        history = [(str(h.get("q") or "")[:ask.MAX_QUESTION], str(h.get("a") or "")[:4000])
+                   for h in history[-ask.MAX_HISTORY:] if isinstance(h, dict) and h.get("q")]
+        if not ask.allowed(aid):
+            return self._error(429, f"That's {ask.PER_HOUR} questions in an hour. Ask again in a little while.")
+        try:
+            return self._json({"answer": ask.answer(r, q, history, config.model())})
+        except subprocess.TimeoutExpired:
+            return self._error(504, "Claude didn't answer in time.")
+        except (OSError, RuntimeError) as e:
+            print("ask:", e, flush=True)
+            return self._error(502, "Claude couldn't answer just now.")
+
+    def shared(self, token, photo):
+        """GET /s/<token> (the recipe's page) and /s/<token>/photo, for anyone with the link."""
+        code = share.code_of(token)
+        r = recipe_full(code, self.query("lang")) if code else None
+        if not r or not r.get("is_recipe"):
+            return self._send(404, share.missing().encode(), "text/html; charset=utf-8")
+        f = config.REELS / code
+        if photo:
+            name = (_read(f / "recipe.json") or {}).get("photo")
+            p = next((f / n for n in (name, "photo.jpg", "cover.jpg") if n and (f / n).is_file()), None)
+            if not p:
+                return self._send(404, b"not here")
+            return self._file(p, "image/jpeg", "private, max-age=3600")
+        return self._send(200, share.page(r, token, _read(f / "post.json") or {}).encode(), "text/html; charset=utf-8",
+                          extra={"Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; "
+                                                            "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"})
+
+    def export(self, aid):
+        """GET /api/export: every recipe as schema.org JSON-LD, in its own language, with its edits."""
+        nutrition = memory.view(aid)["settings"].get("nutrition", True)
+        out = []
+        for f in config.REELS.iterdir() if config.REELS.exists() else []:
+            r = recipe_full(f.name) if CODE.match(f.name) else None
+            if r and r.get("is_recipe"):
+                out.append((r.get("found") or 0, cookbook.jsonld(r, _read(f / "post.json") or {}, nutrition)))
+        body = json.dumps([x for _, x in sorted(out, key=lambda x: -x[0])], ensure_ascii=False, indent=1).encode()
+        return self._send(200, body, "application/ld+json; charset=utf-8", "private, no-store",
+                          {"Content-Disposition": 'attachment; filename="matkon-recipes.jsonld"'})
 
     # ---- the browser extension (extension/) ----
 
@@ -488,6 +611,16 @@ The code works for 7 days.
 """)
         return {"ok": True, "sent": sent, **({} if sent else {"code": code, "link": link})}
 
+    def add_link(self, aid, b):
+        """A recipe page by its link (sources.py), read in the background. A reel's link goes to "Add a reel"."""
+        url = str(b.get("url") or "").strip()[:4000]
+        if sources.is_reel_link(url):
+            return self.settings_op(aid, "add-reel", {"url": url})
+        out = sources.add_link(url, aid)
+        if not out["done"]:
+            job(["sync", "--no-instagram"], "sync")      # no look at Instagram for a page
+        return out
+
     @staticmethod
     def _remember(code):
         try:
@@ -527,7 +660,7 @@ The code works for 7 days.
             if not accounts.check(aid, b.get("old")):
                 raise ValueError("The current password isn't right.")
             accounts.update(aid, password=b.get("new"))
-        elif op in ("nutrition", "english"):
+        elif op in ("nutrition", "english", "units"):
             memory.apply(aid, "setting", {"key": op, "value": b.get("value")})
         elif op == "browser-key":
             return {"ok": True, "key": kitchen.new_key(aid)}
@@ -584,8 +717,32 @@ The code works for 7 days.
             if b.get("id") == aid:
                 raise ValueError("You can't remove your own account.")
             accounts.remove(b.get("id"))
+            if any(b.get("id") in h["members"] for h in memory.households()):
+                memory.household_leave(b.get("id"))      # its household goes on without it
         elif op == "account-password" and admin:
             accounts.update(b.get("id"), password=b.get("password"))
+        elif op == "household" and admin:
+            # two or more accounts with one week plan and one shopping list (memory.py)
+            if not isinstance(b.get("members"), list):
+                raise ValueError("members is a list of accounts.")
+            memory.household_join(b["members"])
+            return {"ok": True, "households": memory.households()}
+        elif op == "household-leave":
+            who = str(b.get("aid") or "")
+            if who != aid and not admin:
+                raise ValueError("Only the kitchen's owner can take someone else out of a household.")
+            memory.household_leave(who)
+            return {"ok": True, **({"households": memory.households()} if admin else {})}
+        elif op in ("share", "unshare"):
+            code = str(b.get("code") or "")
+            if not CODE.match(code):
+                raise ValueError("No such recipe.")
+            if op == "unshare":
+                share.unshare(code)
+                return {"ok": True}
+            if not (recipe_full(code) or {}).get("is_recipe"):
+                raise ValueError("Only a recipe can be shared.")
+            return {"ok": True, "url": share.url(share.share(code, aid))}
         else:
             raise ValueError("no such change")
 

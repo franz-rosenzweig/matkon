@@ -3,6 +3,10 @@
 A reel comes in as its post (post.json: who made it, the caption) and then its video, both sent by the
 browser extension, and the stages (run.py) take it from there. A post with no video yet is "wanted":
 the extension brings its video the next time it's on Instagram.
+
+A recipe page or photos of a recipe (sources.py) live here too, with post.json's "source" saying which
+("web", "photo"; a reel has none): they have no video, so they skip the stages a video needs and are
+never "wanted".
 """
 import json
 import time
@@ -12,6 +16,8 @@ from . import config, instagram
 STAGES = ["video", "transcript", "frames", "link", "recipe", "note", "translate"]
 FILES = {"video": "video.mp4", "transcript": "transcript.json", "frames": "sheets.json", "link": "linked.json",
          "recipe": "recipe.json", "note": "note.json", "translate": "translated.json"}
+# the stages of a recipe that isn't a reel: a page is read ("link" writes linked.json), photos are already in
+SOURCES = {"web": ["link", "recipe", "note", "translate"], "photo": ["recipe", "note", "translate"]}
 MAX_TRIES = 3
 
 
@@ -62,19 +68,31 @@ def has(code):
     return (config.REELS / code / "video.mp4").exists()
 
 
-def finished(f):
-    return all((f / FILES[s]).exists() for s in STAGES)
+def source(post):
+    """"reel", "web" or "photo"."""
+    return (post or {}).get("source") or "reel"
+
+
+def stages(post):
+    """The stages this one goes through, in order."""
+    return SOURCES.get(source(post), STAGES)
+
+
+def finished(f, post=None):
+    return all((f / FILES[s]).exists() for s in stages(post if post is not None else read(f / "post.json", {})))
 
 
 def pending():
-    """Reels with their video in, not finished yet and not given up on, oldest found first."""
+    """Reels with their video in (and pages and photos), not finished yet and not given up on, oldest
+    found first."""
     out = []
     for f in config.REELS.iterdir() if config.REELS.exists() else []:
-        if not (f / "post.json").exists() or not (f / "video.mp4").exists() or finished(f):
+        p = read(f / "post.json")
+        if not p or (source(p) == "reel" and not (f / "video.mp4").exists()) or finished(f, p):
             continue
         if status_of(f).get("tries", 0) >= MAX_TRIES:
             continue
-        out.append((read(f / "post.json", {}).get("found", 0), f.name))
+        out.append((p.get("found", 0), f.name))
     return [c for _, c in sorted(out)]
 
 
@@ -84,7 +102,7 @@ def wanted(limit=20):
     out = []
     for f in config.REELS.iterdir() if config.REELS.exists() else []:
         p = read(f / "post.json")
-        if not p or (f / "video.mp4").exists() or p.get("media_type") not in (2, None):
+        if not p or source(p) != "reel" or (f / "video.mp4").exists() or p.get("media_type") not in (2, None):
             continue
         if status_of(f).get("tries", 0) >= MAX_TRIES:
             continue

@@ -71,9 +71,12 @@ def owner():
 
 
 def ensure():
-    """The owner's account and the cookie secret, the first time."""
+    """The owner's account and the cookie secret, the first time. Writes nothing when they're there, so
+    two run.py at once (a sync and a fixed recipe's refresh) don't trip over each other."""
     with _lock:
         d = _read()
+        if d.get("secret") and d["accounts"]:
+            return
         if not d.get("secret"):
             d["secret"] = secrets.token_hex(32)
         if not d["accounts"]:

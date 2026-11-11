@@ -17,6 +17,11 @@ The gear at the top of every page opens Settings. Everything here is for your ow
 
 - **Calories and protein:** off means you never see nutrition numbers on any recipe, even when the reel gives them. They're taken out before the recipe even reaches your device.
 - **Hebrew recipes in English:** on means Hebrew recipes open in English, and their cards show the English names. The button on each recipe still switches back.
+- **Units:** **As written**, **Metric** or **US**, for every recipe and the shopping list. See [Units](recipes.md#units).
+
+## Week and list
+
+When your account shares its week and shopping list with others, this says who with, and **Stop sharing** gives you your own copy back. The owner sees every household here, can take anyone out of one, and makes a new one by ticking two or more accounts and tapping **Share the week and list**. See [Sharing them](week-and-list.md#sharing-them).
 
 ## Instagram
 
@@ -30,11 +35,10 @@ This is how your own saved reels join the kitchen: through the Matkon extension 
 
 You pick your collection in the extension itself: open the collection on instagram.com, click the Matkon button, and **Use this collection**.
 
-## Add a reel
+## Your recipes
 
-Paste the link of any Instagram reel and tap **Add**, even one that isn't in a collection. It waits in the queue, and the extension brings it the next time a connected browser is on Instagram. A few minutes after that it's a recipe.
-
-On an Android phone it's even easier, because Matkon can sit in the phone's share menu. Open Matkon in Chrome and install it (the menu's **Install app**, or **Add to Home screen** and then **Install**). After that, tap the share button on a reel in the Instagram app and pick Matkon. Matkon opens and says **Added**, or **Already in Matkon** with the recipe if you saved it before, and the reel goes into the same queue. If Matkon was already on your home screen before it learned this, remove it and install it again so the share menu picks it up. iPhones and iPads can't do this, because Safari doesn't let a web page into the share menu.
+- **Add** opens the page for adding a reel, a recipe page or photos. See [Adding recipes](adding-recipes.md).
+- **Download all** saves every recipe in the kitchen as one file (`matkon-recipes.jsonld`), in the standard recipe format other recipe apps read, with your fixes in it. It's a backup, and a way out if I ever want one.
 
 ## Kitchen (the owner)
 

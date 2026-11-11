@@ -18,7 +18,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import accounts, config, memory
+from . import accounts, config, edits, memory, sources
 from .store import read as _read
 
 SENT = config.STATE / "cookbook.json"
@@ -79,17 +79,19 @@ def _when(t):
 
 
 def chosen(f):
-    """The recipe as it goes to Cookbook: in English when the owner reads Hebrew recipes in English."""
+    """The recipe as it goes to Cookbook: in English when the owner reads Hebrew recipes in English,
+    with the edits made in Matkon (edits.py) laid over it."""
     r = _read(f / "recipe.json", {}) or {}
+    orig = r.get("lang", "en")
     en = f / "recipe.en.json"
     owner = accounts.owner()
     if r.get("lang") == "he" and en.exists() and owner and memory.load(owner).get("settings", {}).get("english"):
-        r = {**r, **(_read(en, {}) or {}), "lang": "en"}
-    return r
+        return edits.lay(f, {**r, **(_read(en, {}) or {}), "lang": "en"}, "en", orig)[0]
+    return edits.lay(f, r, orig, orig)[0] if r else r
 
 
 def schema(f, r, post, name):
-    l = LABELS.get(r.get("lang"), LABELS["en"])
+    l = {**LABELS.get(r.get("lang"), LABELS["en"]), "miss": sources.missing_label(post, r.get("lang"))}   # "Not on the page"…
     ing = []
     for g in r.get("ingredient_groups") or []:
         if g.get("name"):
@@ -113,7 +115,7 @@ def schema(f, r, post, name):
         "name": name,
         "description": "\n\n".join(x for x in about if x),
         "url": post.get("url") or "",
-        "author": {"@type": "Person", "name": "@" + post["user"]} if post.get("user") else None,
+        "author": {"@type": "Person", "name": sources.author(post)} if sources.author(post) else None,
         "image": "",
         "prepTime": _duration(t.get("prep")), "cookTime": _duration(t.get("cook")), "totalTime": _duration(t.get("total")),
         "recipeCategory": r.get("kind") or "",
@@ -128,6 +130,40 @@ def schema(f, r, post, name):
     }
 
 
+def _iso(t):
+    return datetime.fromtimestamp(int(t), timezone.utc).isoformat() if t else None
+
+
+def jsonld(r, post, nutrition=True):
+    """One recipe for the export (/api/export), from recipe_full() in server.py (in its own language,
+    edits laid over): a schema.org Recipe like the Cookbook copy, but with the steps as HowToSteps, the
+    servings as written, the cuisine, when it was posted and its language. Tips and what's missing go
+    in the description, the way Cookbook gets them; the names of ingredient groups are left out."""
+    s = schema(None, r, post, r.get("title") or "Recipe")
+    if s.get("author") and post.get("user") and (post.get("source") or "reel") == "reel":
+        s["author"]["url"] = f"https://www.instagram.com/{post['user']}/"
+    out = {
+        "@context": "https://schema.org", "@type": "Recipe",
+        "name": s["name"],
+        "description": s["description"],
+        "recipeIngredient": [x for x in s["recipeIngredient"] if not x.startswith("## ")],
+        "recipeInstructions": [{"@type": "HowToStep", "position": n, "text": t} for n, t in enumerate(s["recipeInstructions"], 1)],
+        "recipeYield": r.get("servings") or None,
+        "prepTime": s["prepTime"], "cookTime": s["cookTime"], "totalTime": s["totalTime"],
+        "keywords": s["keywords"],
+        "recipeCategory": s["recipeCategory"],
+        "recipeCuisine": r.get("cuisine") or None,
+        "author": s["author"],
+        "datePublished": _iso(post.get("taken_at")),
+        "dateCreated": _iso(post.get("found")),
+        "dateModified": _iso((r.get("edited") or {}).get("at") or r.get("made")),
+        "inLanguage": r.get("lang") or "en",
+        "url": post.get("url") or None,
+        "nutrition": s["nutrition"] if nutrition else None,
+    }
+    return {k: v for k, v in out.items() if v not in (None, "", [], {})}
+
+
 def _photo(f, r):
     for name in (r.get("photo"), "photo.jpg", "cover.jpg"):
         if name and (f / name).exists():
@@ -137,7 +173,11 @@ def _photo(f, r):
 
 def _sig(f, r):
     files = [f / "recipe.json", f / "recipe.en.json", _photo(f, r)]
-    return "|".join(str(int(p.stat().st_mtime)) if p and p.exists() else "-" for p in files) + "|" + (r.get("lang") or "")
+    sig = "|".join(str(int(p.stat().st_mtime)) if p and p.exists() else "-" for p in files) + "|" + (r.get("lang") or "")
+    fixed = [edits.path(f, lang) for lang in edits.LANGS]
+    if any(p.exists() for p in fixed):               # only then, so a recipe nobody edited keeps the signature it was sent with
+        sig += "|fixed:" + ",".join(str(p.stat().st_mtime_ns) if p.exists() else "-" for p in fixed)
+    return sig
 
 
 def _name(title):

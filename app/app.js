@@ -1,6 +1,7 @@
 /* Matkon: recipe reels as recipe pages.
    Plain JS. Everything comes from the server and needs an account (api/me, api/recipes, api/r/<code>…).
-   Routes:  #/  home  ·  #/r/<code>  a recipe  ·  #/cook/<code>/<n>  cooking  ·  #/week  ·  #/list  ·  #/history[/<tab>]  ·  #/settings
+   Routes:  #/  home  ·  #/r/<code>  a recipe  ·  #/edit/<code>  fixing it  ·  #/cook/<code>/<n>  cooking  ·  #/week  ·  #/list
+            #/pantry  what can I make  ·  #/add  a reel, a recipe page or photos  ·  #/history[/<tab>]  ·  #/settings
    Memory (saved, ticks, the cooking step, notes, ratings, what was cooked and opened, the week plan and the
    shopping list) lives on the server, so every device of an account sees the same, the Android app too.
    The kitchen timer and the ½×–3× amounts stay on the device. */
@@ -58,6 +59,19 @@
     cart: ico('<path d="M2.5 4h2.6l2.3 11.2h10.8l2.1-8.2H6.2"/><circle cx="9.5" cy="19.6" r="1.3"/><circle cx="17" cy="19.6" r="1.3"/>'),
     plus: ico('<path d="M12 5v14M5 12h14"/>'),
     share: ico('<path d="M12 3.5v11M7.5 8L12 3.5 16.5 8"/><path d="M5 12.5V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5"/>'),
+    fwd: ico('<path d="M9 5l7 7-7 7"/>', 'class="flip"'),
+    more: ico('<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>'),
+    edit: ico('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'),
+    print: ico('<path d="M7 9V3.5h10V9"/><rect x="3.5" y="9" width="17" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>'),
+    link: ico('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>'),
+    folder: ico('<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),
+    send: ico('<path d="M4 12l16-8-6 16-2.5-6.5z"/><path d="M11.5 13.5L20 4"/>'),
+    dice: ico('<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.1"/><circle cx="15" cy="15" r="1.1"/><circle cx="15" cy="9" r="1.1"/><circle cx="9" cy="15" r="1.1"/>'),
+    basket: ico('<path d="M3 10h18l-1.8 9.2a2 2 0 0 1-2 1.8H6.8a2 2 0 0 1-2-1.8z"/><path d="M8 10l3-6M16 10l-3-6M9 14v3M15 14v3"/>'),
+    tag: ico('<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.1 6.1a1.5 1.5 0 0 1-2.1 0z"/><circle cx="8" cy="8" r="1.4"/>'),
+    grip: ico('<circle cx="9" cy="6" r="1.1"/><circle cx="15" cy="6" r="1.1"/><circle cx="9" cy="12" r="1.1"/><circle cx="15" cy="12" r="1.1"/><circle cx="9" cy="18" r="1.1"/><circle cx="15" cy="18" r="1.1"/>'),
+    camera: ico('<path d="M4 8h3l1.6-2.5h6.8L17 8h3a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.6"/>'),
+    download: ico('<path d="M12 3.5v12M7.5 11l4.5 4.5 4.5-4.5"/><path d="M4.5 19.5h15"/>'),
   };
 
   /* ---------- amounts: ½× to 3×, and added up on the shopping list (the same rules as the Android app) ---------- */
@@ -188,7 +202,11 @@
       protein: "Protein", carbs: "Carbs", fat: "Fat", close: "Close", notRecipe: "Not a recipe", mine: "Mine", rating: "Rating",
       notes: "Notes", madeIt: "I made it", made: (n, d) => `Made ${n === 1 ? "once" : n + " times"} · ${d}`,
       posted: (d) => `Posted ${d}`, added: (d, who) => `Added ${d}` + (who ? ` by ${who}` : ""), insta: "Instagram",
-      amounts: "Amounts", plan: "Plan", list: "Add to list", onList: "On the list" },
+      amounts: "Amounts", plan: "Plan", list: "Add to list", onList: "On the list",
+      more: "More", edit: "Fix this recipe", print: "Print", share: "Share a link", collections: "Collections", ask: "Ask",
+      askPh: "Ask about this recipe", asking: "…", again2: "Again, like last time", edited: (d) => `Edited ${d}`, noteLbl: "Note",
+      title: "Title", summary: "Summary", servings: "Serves", group: "Group", amount: "Amount", item: "Ingredient", note: "Note",
+      addIng: "Ingredient", addGroup: "Group", addStep: "Step", save: "Save", cancel: "Cancel", revert: "Undo my changes" },
     he: { ing: "מצרכים", steps: "אופן ההכנה", tips: "טיפים", nut: "ערכים תזונתיים", miss: "חסר בסרטון", serves: "מנות", makes: "כמות",
       prep: "הכנה", cook: "בישול", total: "סה״כ", oven: "תנור", start: "מתחילים לבשל", cont: (n) => `ממשיכים · שלב ${n}`,
       watch: "לצפייה בסרטון", page: "דף המתכון", read: "הקראה", stopRead: "עצירה", awake: "המסך נשאר דולק",
@@ -197,9 +215,16 @@
       carbs: "פחמימות", fat: "שומן", close: "סגירה", notRecipe: "לא מתכון", mine: "שלי", rating: "דירוג", notes: "הערות",
       madeIt: "הכנתי", made: (n, d) => `הוכן ${n === 1 ? "פעם אחת" : n + " פעמים"} · ${d}`,
       posted: (d) => `פורסם ${d}`, added: (d, who) => `נוסף ${d}` + (who ? ` על ידי ${who}` : ""), insta: "אינסטגרם",
-      amounts: "כמויות", plan: "לתכנן", list: "לרשימת הקניות", onList: "ברשימה" },
+      amounts: "כמויות", plan: "לתכנן", list: "לרשימת הקניות", onList: "ברשימה",
+      more: "עוד", edit: "תיקון המתכון", print: "הדפסה", share: "קישור לשיתוף", collections: "אוספים", ask: "שאלה",
+      askPh: "שאלה על המתכון", asking: "…", again2: "שוב, כמו בפעם הקודמת", edited: (d) => `נערך ${d}`, noteLbl: "הערה",
+      title: "שם", summary: "תקציר", servings: "מנות", group: "קבוצה", amount: "כמות", item: "מצרך", note: "הערה",
+      addIng: "מצרך", addGroup: "קבוצה", addStep: "שלב", save: "שמירה", cancel: "ביטול", revert: "ביטול השינויים שלי" },
   };
   const lab = (r) => L[r && r.lang === "he" ? "he" : "en"];
+  // what the source didn't give: a reel, a page or photos
+  const missLabel = (r) => (r && r.source === "web" ? (r.lang === "he" ? "חסר בדף" : "Not on the page")
+    : r && r.source === "photo" ? (r.lang === "he" ? "חסר בתמונות" : "Not in the photos") : lab(r).miss);
   const dirOf = (r) => (r && r.lang === "he" ? ' dir="rtl" lang="he"' : ' dir="ltr" lang="en"');
   const WHY = { saved: () => "Saved", again: (a) => "Not made since " + day(a), like: (a) => "Like " + a, new: () => "New" };
 
@@ -270,6 +295,55 @@
   const M = () => ME.memory;
   const nameOf = (id) => (ME.names && ME.names[id]) || id;
   const isOwner = () => ME.account && ME.account.admin;
+
+  /* ---------- units: as written, metric or US (units.js), for this account ---------- */
+  const units = () => (ME && ME.memory.settings && ME.memory.settings.units) || "";
+  const UA = (a, lang) => (window.MatkonUnits && units() ? MatkonUnits.amount(a || "", units(), lang) : a);
+  const UT = (t, lang) => (window.MatkonUnits && units() ? MatkonUnits.text(t || "", units(), lang) : t);
+  const heText = (x) => /[\u0590-\u05FF]/.test(x || "");
+
+  /* ---------- where a recipe came from: a reel, a recipe page or photos ---------- */
+  const byline = (r) => (r.source === "photo" ? nameOf(r.added_by) : r.source === "web" ? r.user || "" : r.user ? "@" + r.user : "");
+  function sourceLinks(r, l) {
+    if (r.source === "photo") return "";
+    if (r.source === "web") return `${r.user ? `<a href="#/from/${encodeURIComponent(r.user)}">${esc(r.user)}</a>` : ""}${r.reel ? `<a href="${esc(r.reel)}" target="_blank" rel="noopener">${esc(l.page)}</a>` : ""}`;
+    return `${r.user ? `<a href="#/from/${encodeURIComponent(r.user)}">@${esc(r.user)}</a>` : ""}${r.reel ? `<a href="${esc(r.reel)}" target="_blank" rel="noopener">${esc(l.insta)}</a>` : ""}${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(l.page)}</a>` : ""}`;
+  }
+
+  /* ---------- search: every word must be there, in the steps too, and a typo is forgiven ---------- */
+  const HAY = new WeakMap();
+  function hayOf(r) {
+    let h = HAY.get(r);
+    if (!h) {
+      const s = norm([r.title, r.title_en, r.user, r.cuisine, r.kind, nameOf(r.added_by), (r.tags || []).join(" "), (r.items || []).join(" "),
+        (r.items_en || []).join(" "), r.text || "", r.text_en || ""].join(" "));
+      h = { s, words: [...new Set(s.split(" "))] };
+      HAY.set(r, h);
+    }
+    return h;
+  }
+  function near(a, b, max) {                          // at most `max` letters different (Levenshtein)
+    if (Math.abs(a.length - b.length) > max) return false;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const row = [i];
+      let best = i;
+      for (let j = 1; j <= b.length; j++) {
+        row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        best = Math.min(best, row[j]);
+      }
+      if (best > max) return false;
+      prev = row;
+    }
+    return prev[b.length] <= max;
+  }
+  function wordHit(w, h) {
+    if (h.s.includes(w)) return true;
+    if (w.length < 4) return false;
+    const max = w.length >= 7 ? 2 : 1;
+    return h.words.some((x) => x.length >= 3 && (near(w, x, max) || (x.length > w.length && near(w, x.slice(0, w.length), max))));
+  }
+  const matches = (r, words) => { const h = hayOf(r); return words.every((w) => wordHit(w, h)); };
 
   /* ---------- ticked ingredients and the cooking step (kept on the server) ---------- */
   const ticked = (code) => new Set(M().ticks[code] || []);
@@ -428,7 +502,7 @@
   /* ---------- the top bar ---------- */
   function topBar(title) {
     const here = route()[0];
-    const nav = [["week", "Week", I.cal], ["list", "List", I.cart], ["history", "History", I.history], ["settings", "Settings", I.gear]];
+    const nav = [["add", "Add", I.plus], ["week", "Week", I.cal], ["list", "List", I.cart], ["history", "History", I.history], ["settings", "Settings", I.gear]];
     return `<header class="top"><a class="mark" href="#/"><img src="icon.svg" alt=""><h1>${esc(title || "Matkon")}</h1></a>
       <nav class="topnav">${nav.map(([k, n, i]) => `<a class="btn btn-icon" href="#/${k}" aria-label="${n}"${k === here ? ' aria-current="page"' : ""}>${i}</a>`).join("")}</nav></header>`;
   }
@@ -472,8 +546,9 @@
     const words = norm(query).split(" ").filter(Boolean);
     return recipesOnly()
       .filter((r) => !creator || r.user === creator)
-      .filter((r) => kind === "All" || (kind === "Saved" ? M().saved[r.code] : kind === "Made" ? M().cooked_count[r.code] : r.kind === kind))
-      .filter((r) => words.every((w) => haystack(r).includes(w)))
+      .filter((r) => kind === "All" || (kind === "Saved" ? M().saved[r.code] : kind === "Made" ? M().cooked_count[r.code]
+        : kind.startsWith("c:") ? (collOf(kind.slice(2)) || { codes: [] }).codes.includes(r.code) : r.kind === kind))
+      .filter((r) => matches(r, words))
       .sort(SORTS[sortBy] || SORTS.added);
   }
   const SORTS = {
@@ -521,7 +596,7 @@
     return `<li><a class="card" href="#/r/${esc(r.code)}">
       <div class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}${r.complete ? "" : `<span class="flag">${r.lang === "he" ? "חסרות כמויות" : "Missing amounts"}</span>`}
         ${saved || made || rating ? `<span class="marks">${saved ? `<span>${I.markOn}</span>` : ""}${made ? `<span>${I.done}</span>` : ""}${rating ? `<span class="r">${rating}</span>` : ""}</span>` : ""}</div>
-      <div class="txt"${dirOf(shown(r))}><div class="t">${esc(shown(r).title)}</div><div class="by" dir="ltr">@${esc(r.user)}</div>${sortBy === "posted" && r.posted ? `<div class="by">${esc(day(r.posted, shown(r).lang))}</div>` : ""}</div></a></li>`;
+      <div class="txt"${dirOf(shown(r))}><div class="t">${esc(shown(r).title)}</div><div class="by" dir="auto">${esc(byline(r))}</div>${sortBy === "posted" && r.posted ? `<div class="by">${esc(day(r.posted, shown(r).lang))}</div>` : ""}</div></a></li>`;
   }
   function gridHTML() {
     const list = visible();
@@ -534,8 +609,53 @@
     const order = ["Breakfast", "Mains", "Salads & sides", "Soups", "Bread & dough", "Baking & sweets", "Snacks", "Sauces & dips", "Drinks"];
     const saved = recipes.filter((r) => M().saved[r.code]).length, made = recipes.filter((r) => M().cooked_count[r.code]).length;
     const kinds = [["All", recipes.length]].concat(saved ? [["Saved", saved]] : [], made ? [["Made", made]] : [], order.filter((k) => counts[k]).map((k) => [k, counts[k]]));
-    return kinds.map(([k, n]) => `<button type="button" data-action="kind" data-kind="${esc(k)}" aria-pressed="${k === kind}">${esc(k)}<span class="n">${n}</span></button>`).join("");
+    const codes = new Set(recipes.map((r) => r.code));
+    return kinds.map(([k, n]) => `<button type="button" data-action="kind" data-kind="${esc(k)}" aria-pressed="${k === kind}">${esc(k)}<span class="n">${n}</span></button>`).join("") +
+      colls().map((c) => `<button type="button" class="coll" data-action="kind" data-kind="c:${esc(c.id)}" aria-pressed="${"c:" + c.id === kind}" dir="auto">${I.folder}${esc(c.name)}<span class="n">${c.codes.filter((x) => codes.has(x)).length}</span></button>`).join("");
   }
+  /* ---------- collections: your own groups of recipes ---------- */
+  const colls = () => M().collections || [];
+  const collOf = (id) => colls().find((c) => c.id === id);
+  function collBarHTML() {
+    const c = kind.startsWith("c:") ? collOf(kind.slice(2)) : null;
+    if (!c) return "";
+    return `<div class="creator collbar"><span dir="auto">${I.folder}${esc(c.name)}</span><span class="grow"></span>
+      <button type="button" class="btn" data-action="coll-rename" data-id="${esc(c.id)}">Rename</button>
+      <button type="button" class="btn btn-icon" data-action="coll-delete" data-id="${esc(c.id)}" aria-label="Delete">${I.trash}</button></div>`;
+  }
+  function collSheet(code) {
+    const body = () => `<ul class="days">${colls().map((c) => { const on = c.codes.includes(code);
+        return `<li><button type="button" class="dayrow" data-coll="${esc(c.id)}" aria-pressed="${on}"><span dir="auto">${esc(c.name)}</span><span class="tick${on ? " on" : ""}">${I.check}</span></button></li>`; }).join("")}</ul>
+      <form class="addrow" data-sheet="coll-new"><input name="name" type="text" placeholder="New collection" aria-label="New collection" maxlength="60" dir="auto" autocomplete="off">
+        <button class="btn btn-icon" type="submit" aria-label="Add">${I.plus}</button></form>`;
+    const el = sheet("Collections", `<div class="cbody">${body()}</div>`, (e) => {
+      const b = e.target.closest("[data-coll]");
+      if (!b) return;
+      const id = b.dataset.coll, c = collOf(id), on = !c.codes.includes(code);
+      change(on ? "coll-add" : "coll-remove", { id, code }, (m) => { const x = (m.collections || []).find((y) => y.id === id); if (x) x.codes = on ? x.codes.concat([code]) : x.codes.filter((k) => k !== code); });
+      el.querySelector(".cbody").innerHTML = body();
+    });
+    el.addEventListener("submit", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const name = e.target.elements.name.value.trim();
+      if (!name) return;
+      const id = newId();
+      change("coll-new", { id, name }, (m) => { m.collections = (m.collections || []).concat([{ id, name, codes: [] }]); });
+      change("coll-add", { id, code }, (m) => { const x = m.collections.find((y) => y.id === id); if (x) x.codes = x.codes.concat([code]); });
+      el.querySelector(".cbody").innerHTML = body();
+      const i = el.querySelector("input[name=name]"); if (i) i.focus();
+    });
+  }
+
+  /* ---------- Surprise me: one recipe for tonight, from Up next, nothing made in the last five days ---------- */
+  async function surprise() {
+    try { if (!SUGGEST) SUGGEST = (await getJSON("api/suggest")).suggest; } catch (e) { /* the whole kitchen then */ }
+    const recent = (c) => (M().cooked_last[c] || 0) > Date.now() / 1000 - 5 * 86400;
+    let pool = (SUGGEST || []).map((x) => x.code).filter((c) => byCode(c) && !recent(c));
+    if (!pool.length) pool = recipesOnly().map((r) => r.code).filter((c) => !recent(c));
+    if (pool.length) location.hash = "#/r/" + encodeURIComponent(pool[Math.floor(Math.random() * pool.length)]);
+  }
+
   function nextHTML() {
     if (!SUGGEST || !SUGGEST.length || query || kind !== "All" || creator) return "";
     const items = SUGGEST.map((s) => [s, byCode(s.code)]).filter(([, r]) => r);
@@ -556,6 +676,8 @@
         <button type="button" class="btn btn-icon filter" data-action="filter" aria-label="Sort and filter" aria-pressed="${filtered()}">${I.sort}</button></div>
       ${creator ? `<div class="creator"><span dir="ltr">@${esc(creator)}</span><a class="btn btn-icon" href="#/" aria-label="All creators">${I.x}</a></div>` : ""}
       <nav class="kinds" aria-label="Kinds">${kindsHTML()}</nav>
+      <div id="collbar">${collBarHTML()}</div>
+      <div class="homeacts"><button type="button" class="btn" data-action="surprise">${I.dice}Surprise me</button><a class="btn" href="#/pantry">${I.basket}What can I make?</a></div>
       ${notes.join("")}
       <div id="next">${nextHTML()}</div>
       <div id="grid">${gridHTML()}</div>
@@ -567,18 +689,18 @@
     const c = [];
     if (r.servings) c.push(`<span class="chip">${I.people}${esc(/^\d+([–-]\d+)?( |$)(as\b|people|servings?\b|$)/.test(r.servings.trim()) ? l.serves : l.makes)} ${esc(r.servings)}</span>`);
     [["prep", l.prep], ["cook", l.cook], ["total", l.total]].forEach(([k, name]) => { if (r.time && r.time[k]) c.push(`<span class="chip">${I.clock}${esc(name)} ${esc(r.time[k])}</span>`); });
-    if (r.oven) c.push(`<span class="chip">${I.oven}${esc(l.oven)} ${esc(r.oven)}</span>`);
+    if (r.oven) c.push(`<span class="chip">${I.oven}${esc(l.oven)} ${esc(UT(r.oven, r.lang))}</span>`);
     return c.length ? `<div class="chips facts">${c.join("")}</div>` : "";
   }
-  function ingHTML(i, key, done, l, f) {
-    const amount = Amt.scale(i.amount, f);
+  function ingHTML(i, key, done, l, f, lang) {
+    const amount = UA(Amt.scale(i.amount, f), lang);
     const what = `${amount ? `<span class="amt">${esc(amount)}</span> ` : ""}${esc(i.item)}${i.note ? `<span class="nt">, ${esc(i.note)}</span>` : ""}`;
     return `<li><button type="button" class="ing${done ? " done" : ""}" data-action="tick" data-k="${key}" aria-pressed="${done}">
       <span class="box">${I.check}</span><span class="what">${what}${i.amount ? "" : ` <span class="none">· ${esc(l.noAmt)}</span>`}</span></button></li>`;
   }
   function ingredientsHTML(r, l) {
     const t = ticked(r.code), f = factor(r.code);
-    return r.ingredient_groups.map((g, gi) => `${g.name ? `<h3>${esc(g.name)}</h3>` : ""}<ul class="ings">${g.items.map((i, ii) => ingHTML(i, gi + "." + ii, t.has(gi + "." + ii), l, f)).join("")}</ul>`).join("");
+    return r.ingredient_groups.map((g, gi) => `${g.name ? `<h3>${esc(g.name)}</h3>` : ""}<ul class="ings">${g.items.map((i, ii) => ingHTML(i, gi + "." + ii, t.has(gi + "." + ii), l, f, r.lang)).join("")}</ul>`).join("");
   }
   const hasIngs = (r) => r.ingredient_groups.some((g) => g.items.some((i) => i.item && i.item.trim()));
   function amountsHTML(r, l) {
@@ -619,10 +741,16 @@
     const cur = M().ratings[code] || 0;
     return `<div class="rating" role="group">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `<button type="button" data-action="rate" data-n="${n}" aria-pressed="${n === cur}" class="${n <= cur ? "on" : ""}">${n}</button>`).join("")}</div>`;
   }
+  const factorName = (f) => (FACTORS.find(([x]) => x === f) || [f, f + "×"])[1];
   function mineHTML(r, l) {
     const n = M().cooked_count[r.code], last = M().cooked_last[r.code];
+    const log = (M().cooked || []).filter((e) => e.code === r.code).sort((a, b) => b.at - a.at);
+    const prev = log.find((e) => e.factor && e.factor !== 1);
     return `<section class="sec mine"><h2>${esc(l.mine)}</h2>
       <div class="made"><button type="button" class="btn" data-action="made">${I.done}${esc(l.madeIt)}</button>${n ? `<span class="sub">${esc(l.made(n, day(last)))}</span>` : ""}</div>
+      ${prev && r.steps && r.steps.length ? `<button type="button" class="btn" data-action="again" data-f="${prev.factor}">${I.cook}${esc(l.again2)} · ${esc(factorName(prev.factor))}</button>` : ""}
+      ${log.some((e) => e.note || (e.factor && e.factor !== 1)) ? `<ul class="log">${log.filter((e) => e.note || (e.factor && e.factor !== 1)).slice(0, 8).map((e) =>
+        `<li><span class="when">${esc(day(e.at, r.lang))}${e.factor && e.factor !== 1 ? " · " + esc(factorName(e.factor)) : ""}</span>${e.note ? `<span class="nt" dir="auto">${esc(e.note)}</span>` : ""}</li>`).join("")}</ul>` : ""}
       <h3>${esc(l.rating)}</h3>${ratingHTML(r.code)}
       <h3>${esc(l.notes)}</h3><textarea id="note" rows="3" data-code="${esc(r.code)}">${esc(M().notes[r.code] || "")}</textarea></section>`;
   }
@@ -639,7 +767,8 @@
       <div class="bar"><a class="btn btn-icon" href="#/" aria-label="Back">${I.back}</a><span class="grow"></span>
         ${(r.langs || []).length > 1 ? `<button type="button" class="btn lang" data-action="lang" data-to="${r.lang === "he" ? "en" : "he"}" lang="${r.lang === "he" ? "en" : "he"}">${r.lang === "he" ? "English" : "עברית"}</button>` : ""}
         ${canSpeak && steps.length ? `<button type="button" class="btn" data-action="read" aria-pressed="${reading}">${reading ? I.stop + esc(l.stopRead) : I.speak + esc(l.read)}</button>` : ""}
-        <button type="button" class="btn btn-icon save${saved ? " on" : ""}" data-action="save" aria-pressed="${saved}" aria-label="Save">${saved ? I.markOn : I.mark}</button></div>
+        <button type="button" class="btn btn-icon save${saved ? " on" : ""}" data-action="save" aria-pressed="${saved}" aria-label="Save">${saved ? I.markOn : I.mark}</button>
+        <button type="button" class="btn btn-icon" data-action="more" aria-label="${esc(l.more)}">${I.more}</button></div>
       <article class="recipe">
         <div class="pic-col">${mediaHTML(r, l, playing === r.code)}
           ${"wakeLock" in navigator ? `<button type="button" class="switch" role="switch" aria-checked="${awake}" data-action="awake"><span>${esc(l.awake)}</span><span class="track"><span class="knob"></span></span></button>` : ""}</div>
@@ -647,8 +776,9 @@
           <header class="head">
             <h1 tabindex="-1">${esc(r.title)}</h1>
             ${r.summary ? `<p class="sum">${esc(r.summary)}</p>` : ""}
-            <div class="by" dir="ltr">${r.user ? `<a href="#/from/${encodeURIComponent(r.user)}">@${esc(r.user)}</a>` : ""}<a href="${esc(r.reel)}" target="_blank" rel="noopener">${esc(l.insta)}</a>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(l.page)}</a>` : ""}</div>
-            <p class="dates">${[r.posted ? l.posted(day(r.posted, r.lang)) : "", r.found ? l.added(day(r.found, r.lang), others && r.added_by ? nameOf(r.added_by) : "") : ""].filter(Boolean).map(esc).join(" · ")}</p>
+            <div class="by" dir="ltr">${sourceLinks(r, l)}</div>
+            <p class="dates">${[r.posted ? l.posted(day(r.posted, r.lang)) : "", r.found ? l.added(day(r.found, r.lang), others && r.added_by ? nameOf(r.added_by) : "") : "",
+              r.edited && r.edited.at ? l.edited(day(r.edited.at, r.lang)) : ""].filter(Boolean).map(esc).join(" · ")}</p>
             ${factsHTML(r, l)}
             ${r.is_recipe !== false && steps.length ? `<div class="actions"><a class="btn btn-accent btn-big" href="#/cook/${esc(r.code)}/${at || 1}">${I.cook}${esc(at ? l.cont(at) : l.start)}</a></div>` : ""}
             ${r.is_recipe !== false ? `<div class="actions more"><button type="button" class="btn" data-action="plan">${I.cal}${esc(l.plan)}</button>${hasIngs(r) ? `<button type="button" class="btn" data-action="to-list">${I.cart}${esc(l.list)}</button>` : ""}</div>
@@ -657,12 +787,13 @@
           ${r.is_recipe === false ? `<p class="empty">${esc(l.notRecipe)}</p>` : `
           <div class="two">
             ${r.ingredient_groups.length ? `<section class="sec"><h2>${esc(l.ing)}</h2><div id="ing-list">${ingredientsHTML(r, l)}</div></section>` : ""}
-            ${steps.length ? `<section class="sec"><h2>${esc(l.steps)}</h2><ol class="steps">${steps.map((s, i) => `<li><div class="step"><span class="n">${i + 1}</span><div>${esc(s.text)}${timerChips(r, s, l)}</div></div></li>`).join("")}</ol></section>` : ""}
+            ${steps.length ? `<section class="sec"><h2>${esc(l.steps)}</h2><ol class="steps">${steps.map((s, i) => `<li><div class="step"><span class="n">${i + 1}</span><div>${esc(UT(s.text, r.lang))}${timerChips(r, s, l)}</div></div></li>`).join("")}</ol></section>` : ""}
           </div>
-          ${r.tips && r.tips.length ? `<section class="sec"><h2>${esc(l.tips)}</h2><ul class="list">${r.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></section>` : ""}
+          ${r.tips && r.tips.length ? `<section class="sec"><h2>${esc(l.tips)}</h2><ul class="list">${r.tips.map((t) => `<li>${esc(UT(t, r.lang))}</li>`).join("")}</ul></section>` : ""}
           ${nutritionHTML(r, l)}
-          ${r.missing && r.missing.length ? `<section class="sec miss"><h2>${esc(l.miss)}</h2><ul class="list">${r.missing.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></section>` : ""}
-          ${mineHTML(r, l)}`}
+          ${r.missing && r.missing.length ? `<section class="sec miss"><h2>${esc(missLabel(r))}</h2><ul class="list">${r.missing.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></section>` : ""}
+          ${mineHTML(r, l)}
+          ${askHTML(r, l)}`}
         </div>
       </article>
     </div>`;
@@ -707,9 +838,9 @@
       <div class="progress" aria-hidden="true"><span style="width:${Math.round((k / steps.length) * 100)}%"></span></div>
       <div class="count">${esc(l.step(k, steps.length))}</div>
       <div class="body" aria-live="polite">
-        <p class="said" tabindex="-1">${esc(s.text)}</p>
+        <p class="said" tabindex="-1">${esc(UT(s.text, r.lang))}</p>
         <div class="side">
-        ${uses.length ? `<div class="uses"><span class="lbl">${esc(l.uses)}</span><ul>${uses.map((i) => `<li><b>${esc(Amt.scale(i.amount, factor(r.code)))}</b> ${esc(i.item)}</li>`).join("")}</ul></div>` : ""}
+        ${uses.length ? `<div class="uses"><span class="lbl">${esc(l.uses)}</span><ul>${uses.map((i) => `<li><b>${esc(UA(Amt.scale(i.amount, factor(r.code)), r.lang))}</b> ${esc(i.item)}</li>`).join("")}</ul></div>` : ""}
         <div class="tools">${timerChips(r, s, l).replace(/class="chip"/g, 'class="btn"').replace('<div class="chips">', "").replace(/<\/div>$/, "")}
           ${canSpeak ? `<button type="button" class="btn" data-action="read-step" data-i="${k - 1}">${I.speak}${esc(l.read)}</button>` : ""}</div>
         </div>
@@ -739,6 +870,23 @@
     return `<li><a class="hrow" href="#/r/${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
       <span class="t"${dirOf(shown(r))}>${esc(shown(r).title)}</span>${right || ""}</a></li>`;
   }
+  let calOff = 0;
+  function calendarHTML(cooked) {
+    const t = today0(), first = new Date(t.getFullYear(), t.getMonth() + calOff, 1), start = weekStart(first);
+    const byDay = {};
+    cooked.forEach((e) => { const k = iso(new Date(e.at * 1000)); (byDay[k] = byDay[k] || []).push(e); });
+    let cells = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+    if (cells.slice(35).every((d) => d.getMonth() !== first.getMonth())) cells = cells.slice(0, 35);
+    const dow = Array.from({ length: 7 }, (_, i) => addDays(start, i).toLocaleDateString(undefined, { weekday: "narrow" }));
+    return `<div class="cal"><div class="calhead"><button type="button" class="btn btn-icon" data-action="cal" data-d="-1" aria-label="Earlier">${I.back}</button>
+        <b>${esc(first.toLocaleDateString(undefined, { month: "long", year: "numeric" }))}</b>
+        <button type="button" class="btn btn-icon" data-action="cal" data-d="1" aria-label="Later"${calOff >= 0 ? " disabled" : ""}>${I.fwd}</button></div>
+      <div class="calgrid">${dow.map((d) => `<span class="dow">${esc(d)}</span>`).join("")}${cells.map((d) => {
+        const k = iso(d), rs = (byDay[k] || []).map((e) => byCode(e.code)).filter(Boolean);
+        return `<div class="cday${d.getMonth() !== first.getMonth() ? " out" : ""}${k === iso(t) ? " today" : ""}"><span class="dn">${d.getDate()}</span>
+          ${rs.slice(0, 2).map((r) => `<a class="cpic" href="#/r/${esc(r.code)}" aria-label="${esc(shown(r).title)}">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</a>`).join("")}${rs.length > 2 ? `<span class="more">+${rs.length - 2}</span>` : ""}</div>`;
+      }).join("")}</div></div>`;
+  }
   async function historyPage(tab) {
     const h = await getJSON("api/history");
     tab = tab || "cooked";
@@ -746,7 +894,11 @@
     let body = "";
     if (tab === "cooked") {
       const rows = h.cooked.map((e) => [e, byCode(e.code)]).filter(([, r]) => r);
-      body = rows.length ? `<ul class="hlist">${rows.map(([e, r]) => rowHTML(r, `<span class="when">${esc(day(e.at))}</span>`).replace("</a></li>", `</a><button type="button" class="btn btn-icon del" data-action="uncook" data-id="${esc(e.id)}" aria-label="Remove">${I.trash}</button></li>`)).join("")}</ul>` : `<p class="empty">Nothing yet</p>`;
+      body = calendarHTML(h.cooked) + (rows.length ? `<ul class="hlist log">${rows.map(([e, r]) => `<li><a class="hrow" href="#/r/${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
+          <span class="t"><span${dirOf(shown(r))}>${esc(shown(r).title)}</span>${e.note ? `<span class="nt" dir="auto">${esc(e.note)}</span>` : ""}</span>
+          <span class="when">${esc(day(e.at))}${e.factor && e.factor !== 1 ? " · " + esc(factorName(e.factor)) : ""}</span></a>
+        <button type="button" class="btn btn-icon del" data-action="cook-note" data-id="${esc(e.id)}" aria-label="Note">${I.edit}</button>
+        <button type="button" class="btn btn-icon del" data-action="uncook" data-id="${esc(e.id)}" aria-label="Remove">${I.trash}</button></li>`).join("")}</ul>` : `<p class="empty">Nothing yet</p>`);
     } else if (tab === "viewed") {
       const rows = h.viewed.map(([c, t]) => [byCode(c), t]).filter(([r]) => r);
       body = rows.length ? `<ul class="hlist">${rows.map(([r, t]) => rowHTML(r, `<span class="when">${esc(dayTime(t))}</span>`)).join("")}</ul>` : `<p class="empty">Nothing yet</p>`;
@@ -765,8 +917,10 @@
   }
 
   /* ---------- the week: this week and next, from Sunday ---------- */
+  const withLine = () => { const h = M().household || []; return h.length ? `<span class="with">With ${esc(h.map(nameOf).join(", "))}</span>` : ""; };
   function weekPage() {
-    return `<div class="wrap">${topBar("Week")}<div id="live">${weekBody()}</div></div>`;
+    return `<div class="wrap">${topBar("Week")}<div class="pagebar">${withLine()}<span class="grow"></span><button type="button" class="btn" data-action="print">${I.print}Print</button></div>
+      <div id="live">${weekBody()}</div></div>`;
   }
   function weekBody() {
     const t = today0(), ti = iso(t), start = weekStart(t), end = iso(addDays(start, 7));
@@ -778,9 +932,9 @@
       ${[0, 1, 2, 3, 4, 5, 6].map((i) => {
         const d = addDays(start, w * 7 + i), k = iso(d);
         const rows = (plan[k] || []).map((p) => [p, byCode(p.code)]).filter(([, r]) => r);
-        return `<div class="day${k < ti ? " past" : ""}${k === ti ? " today" : ""}"><div class="dayhead"><b>${esc(dayName(d))}</b><span class="sub">${esc(shortDate(d))}</span>
+        return `<div class="day${k < ti ? " past" : ""}${k === ti ? " today" : ""}" data-day="${k}"><div class="dayhead"><b>${esc(dayName(d))}</b><span class="sub">${esc(shortDate(d))}</span>
             <button type="button" class="btn btn-icon add" data-action="plan-pick" data-day="${k}" aria-label="Add">${I.plus}</button></div>
-          ${rows.length ? `<ul class="hlist">${rows.map(([p, r]) => `<li><a class="hrow" href="#/r/${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
+          ${rows.length ? `<ul class="hlist">${rows.map(([p, r]) => `<li><span class="grip" data-drag="${esc(p.id)}" aria-hidden="true">${I.grip}</span><a class="hrow" href="#/r/${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
             <span class="t"${dirOf(shown(r))}>${esc(shown(r).title)}</span></a>
             <button type="button" class="btn btn-icon del" data-action="plan-move" data-id="${esc(p.id)}" aria-label="Move">${I.cal}</button>
             <button type="button" class="btn btn-icon del" data-action="plan-remove" data-id="${esc(p.id)}" aria-label="Remove">${I.x}</button></li>`).join("")}</ul>` : ""}</div>`;
@@ -792,7 +946,7 @@
     const all = recipesOnly().slice().sort((a, b) => (saved[b.code] ? 1 : 0) - (saved[a.code] ? 1 : 0) || (b.found || 0) - (a.found || 0));
     const rows = (q) => {
       const words = norm(q).split(" ").filter(Boolean);
-      const list = all.filter((r) => words.every((w) => haystack(r).includes(w)));
+      const list = all.filter((r) => matches(r, words));
       return list.length ? list.map((r) => `<li><button type="button" class="hrow" data-pick="${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
         <span class="t"${dirOf(shown(r))}>${esc(shown(r).title)}</span></button></li>`).join("") : `<li class="empty">No recipes</li>`;
     };
@@ -819,27 +973,33 @@
       <div id="live">${listBody()}</div></div>`;
   }
   const shopLines = () => Amt.merge(M().shop || []);
+  const aisleOf = (x) => (M().aisles || {})[x.key] || (window.MatkonAisles ? MatkonAisles.of(x.item) : "other");
   function lineHTML(x) {
     const from = x.codes.map(byCode).filter(Boolean).map((r) => shown(r).title);
     const ids = esc(x.ids.join(","));
+    const amount = x.amount ? UA(x.amount, heText(x.amount + x.item) ? "he" : "en") : "";
     return `<li class="line"><button type="button" class="ing${x.done ? " done" : ""}" data-action="shop-tick" data-ids="${ids}" aria-pressed="${x.done}">
-        <span class="box">${I.check}</span><span class="txt"><span class="it" dir="auto">${x.amount ? `<span class="amt">${esc(x.amount)}</span> ` : ""}${esc(x.item)}</span>
+        <span class="box">${I.check}</span><span class="txt"><span class="it" dir="auto">${amount ? `<span class="amt">${esc(amount)}</span> ` : ""}${esc(x.item)}</span>
         ${from.length ? `<span class="from" dir="auto">${esc(from.join(" · "))}</span>` : ""}</span></button>
+      ${x.done ? "" : `<button type="button" class="btn btn-icon del" data-action="aisle" data-key="${esc(x.key)}" data-item="${esc(x.item)}" aria-label="Aisle">${I.tag}</button>`}
       <button type="button" class="btn btn-icon del" data-action="shop-remove" data-ids="${ids}" aria-label="Remove">${I.x}</button></li>`;
   }
   function listBody() {
     const lines = shopLines();
     if (!lines.length) return `<p class="empty">Nothing on the list</p>`;
     const open = lines.filter((x) => !x.done), done = lines.filter((x) => x.done);
-    return `<div class="listbar">${open.length ? `<button type="button" class="btn" data-action="shop-share">${I.share}${navigator.share ? "Share" : "Copy"}</button>` : ""}
+    const groups = {};
+    open.forEach((x) => { const a = aisleOf(x); (groups[a] = groups[a] || []).push(x); });
+    const order = window.MatkonAisles ? MatkonAisles.ORDER : ["other"];
+    const names = window.MatkonAisles ? MatkonAisles.NAMES : { other: "" };
+    return `<div class="listbar">${withLine()}${open.length ? `<button type="button" class="btn" data-action="shop-share">${I.share}${navigator.share ? "Share" : "Copy"}</button>` : ""}
+        <button type="button" class="btn" data-action="print">${I.print}Print</button>
         <button type="button" class="btn" data-action="shop-clear-done"${done.length ? "" : " disabled"}>Clear done</button>
         <button type="button" class="btn" data-action="shop-clear-all">Clear all</button></div>
-      ${open.length ? `<section class="sec shop"><ul class="ings">${open.map(lineHTML).join("")}</ul></section>` : ""}
+      ${order.filter((a) => groups[a]).map((a) => `<section class="sec shop"><h3 class="aisle">${esc(names[a] || a)}</h3><ul class="ings">${groups[a].map(lineHTML).join("")}</ul></section>`).join("")}
       ${done.length ? `<section class="sec shop"><h2>Done</h2><ul class="ings">${done.map(lineHTML).join("")}</ul></section>` : ""}`;
   }
-  async function shareList() {
-    const text = shopLines().filter((x) => !x.done).map((x) => "• " + (x.amount ? x.amount + " " : "") + x.item).join("\n");
-    if (navigator.share) { try { await navigator.share({ text }); } catch (e) { /* closed */ } return; }
+  async function copyText(text) {
     try { await navigator.clipboard.writeText(text); }
     catch (e) {                                        // no clipboard over plain http: the old way
       const ta = document.createElement("textarea");
@@ -848,7 +1008,23 @@
       try { document.execCommand("copy"); } catch (e2) { /* nothing more to try */ }
       ta.remove();
     }
+  }
+  async function shareList() {
+    const text = shopLines().filter((x) => !x.done).map((x) => "• " + (x.amount ? UA(x.amount, heText(x.amount + x.item) ? "he" : "en") + " " : "") + x.item).join("\n");
+    if (navigator.share) { try { await navigator.share({ text }); } catch (e) { /* closed */ } return; }
+    await copyText(text);
     toast("Copied");
+  }
+  function aisleSheet(key, item) {
+    const names = MatkonAisles.NAMES, cur = (M().aisles || {})[key] || MatkonAisles.of(item);
+    sheet(item, `<ul class="days">${MatkonAisles.ORDER.map((a) => `<li><button type="button" class="dayrow" data-aisle="${a}" aria-pressed="${a === cur}"><span>${esc(names[a])}</span><span class="tick${a === cur ? " on" : ""}">${I.check}</span></button></li>`).join("")}</ul>`,
+      (e, close) => {
+        const b = e.target.closest("[data-aisle]");
+        if (!b) return;
+        close();
+        const aisle = b.dataset.aisle === MatkonAisles.of(item) ? "" : b.dataset.aisle;
+        change("aisle", { key, aisle }, (m) => { m.aisles = m.aisles || {}; if (aisle) m.aisles[key] = aisle; else delete m.aisles[key]; });
+      });
   }
   // what's on the page now, redrawn after a change here or on another device
   function paint() {
@@ -857,6 +1033,229 @@
     const page = route()[0];
     if (page === "week") el.innerHTML = weekBody();
     else if (page === "list") el.innerHTML = listBody();
+    else if (page === "pantry") el.innerHTML = pantryBody();
+  }
+
+  /* ---------- What can I make? (what's in the kitchen, kept for the account) ---------- */
+  const STAPLE = new Set(["salt", "pepper", "black pepper", "salt and pepper", "water", "oil", "olive oil", "vegetable oil", "sugar", "ice",
+    "מלח", "פלפל שחור", "מים", "שמן", "שמן זית", "סוכר"].map(norm));
+  const pantry = () => M().pantry || [];
+  function needsOf(r) {                               // the main things a recipe needs, not salt and spices
+    const useEn = english() && r.lang !== "en" && r.items_en && r.items_en.length;
+    const list = useEn ? r.items_en : r.main_ingredients && r.main_ingredients.length ? r.main_ingredients : r.items || [];
+    const out = [...new Set(list.map((x) => String(x || "").trim()).filter(Boolean))]
+      .filter((x) => !STAPLE.has(norm(x)) && !(window.MatkonAisles && MatkonAisles.of(x) === "spices"));
+    return useEn ? out.slice(0, 8) : out;
+  }
+  function haveIt(x, have) {
+    const kx = " " + Amt.key(x) + " ";
+    return have.some((p) => { const kp = Amt.key(p); return kp && (kx.includes(" " + kp + " ") || (" " + kp + " ").includes(kx)); });
+  }
+  function pantryPage() {
+    return `<div class="wrap">${topBar()}<h1 class="pagetitle" tabindex="-1">What can I make?</h1>
+      <form data-form="pantry-add" class="addrow"><input name="item" type="text" placeholder="Add" aria-label="Add" autocomplete="off" autocapitalize="none" enterkeyhint="done" dir="auto" maxlength="60">
+        <button class="btn btn-icon" type="submit" aria-label="Add">${I.plus}</button></form>
+      <div id="live">${pantryBody()}</div></div>`;
+  }
+  function pantryBody() {
+    const have = pantry();
+    const common = new Map();
+    recipesOnly().forEach((r) => needsOf(r).forEach((x) => { const k = Amt.key(x); const c = common.get(k) || { n: 0, name: x }; c.n++; common.set(k, c); }));
+    const offer = [...common.values()].sort((a, b) => b.n - a.n).map((c) => c.name).filter((x) => !haveIt(x, have)).slice(0, 20);
+    const ranked = recipesOnly().map((r) => { const need = needsOf(r); const got = need.filter((x) => haveIt(x, have)); return { r, got, miss: need.filter((x) => !haveIt(x, have)) }; })
+      .filter((x) => x.got.length).sort((a, b) => a.miss.length - b.miss.length || b.got.length - a.got.length).slice(0, 40);
+    return `<section class="sec pantry">
+        ${have.length ? `<h3>In the kitchen</h3><div class="chips">${have.map((x) => `<button type="button" class="have" data-action="pantry-del" data-p="${esc(x)}" dir="auto">${esc(x)}${I.x}</button>`).join("")}</div>` : ""}
+        ${offer.length ? `<h3>From your recipes</h3><div class="chips">${offer.map((x) => `<button type="button" data-action="pantry-add" data-p="${esc(x)}" dir="auto">${I.plus}${esc(x)}</button>`).join("")}</div>` : ""}</section>
+      ${have.length ? (ranked.length ? `<section class="sec"><h2>You can make</h2><ul class="hlist can">${ranked.map(({ r, miss }) => `<li><a class="hrow" href="#/r/${esc(r.code)}"><span class="pic">${r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : ""}</span>
+          <span class="t"><span${dirOf(shown(r))}>${esc(shown(r).title)}</span><span class="nt" dir="auto">${miss.length ? "Missing: " + esc(miss.slice(0, 6).join(", ")) + (miss.length > 6 ? "…" : "") : "Everything"}</span></span></a></li>`).join("")}</ul></section>`
+        : `<p class="empty">Nothing yet</p>`) : ""}`;
+  }
+  function pantrySet(items) { change("pantry", { items }, (m) => { m.pantry = items; }); }
+
+  /* ---------- Add: a reel, a recipe page, or photos of a recipe ---------- */
+  let addResult = null;
+  function addPage() {
+    const d = addResult;
+    const r = d && d.code ? byCode(d.code) : null;
+    return `<div class="wrap narrow">${topBar("Add")}
+      <section class="sec set"><h2>Link</h2>
+        <form data-form="add-link" class="row">${field("url", "Reel or recipe page", "", "url", 'required inputmode="url" autocomplete="off"')}<button class="btn btn-accent" type="submit">Add</button></form></section>
+      <section class="sec set"><h2>Photos</h2>
+        <label class="btn btn-big filebtn">${I.camera}Choose photos<input type="file" accept="image/*" multiple hidden data-photos></label></section>
+      ${d ? `<section class="shared"><h2>${esc(d.error ? d.error : r && d.done ? "Already in Matkon" : d.new === false ? "Already on the way" : "Added")}</h2>${r && d.done ? `<ul class="hlist">${rowHTML(r)}</ul>` : ""}</section>` : ""}
+      <p class="msg" id="msg" role="status"></p></div>`;
+  }
+  const isInsta = (u) => /(^|\.)(instagram\.com|instagr\.am)\//i.test(u.replace(/^https?:\/\//i, ""));
+  async function addLink(text) {
+    const url = (String(text).match(/https?:\/\/\S+/) || [String(text).trim()])[0];
+    if (isInsta(url) || /instagram\.com|instagr\.am/i.test(text)) return post("api/settings", { op: "add-reel", url: text });
+    return post("api/add-link", { url: /^https?:\/\//i.test(url) ? url : "https://" + url });
+  }
+  async function shrink(file) {                        // a phone photo, down to 2000 px and a JPEG, before it goes up
+    const img = await createImageBitmap(file);
+    const k = Math.min(1, 2000 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.85);
+  }
+  async function addPhotos(files) {
+    files = [...files].filter((f) => /^image\//.test(f.type)).slice(0, 4);
+    if (!files.length) return;
+    say("Sending…");
+    try {
+      const images = [];
+      for (const f of files) images.push(await shrink(f));
+      addResult = await post("api/add-photo", { images });
+      LIST = await getJSON("api/recipes");
+    } catch (e) {
+      if (e instanceof SignedOut) return signInPage();
+      addResult = { error: e.message };
+    }
+    render(true);
+  }
+
+  /* ---------- fixing a recipe (in the language it's shown in) ---------- */
+  const edIng = (l, i) => `<div class="ei"><input name="amount" value="${esc(i.amount || "")}" placeholder="${esc(l.amount)}" aria-label="${esc(l.amount)}" dir="auto">
+    <input name="item" value="${esc(i.item || "")}" placeholder="${esc(l.item)}" aria-label="${esc(l.item)}" dir="auto">
+    <input name="note" value="${esc(i.note || "")}" placeholder="${esc(l.note)}" aria-label="${esc(l.note)}" dir="auto">
+    <button type="button" class="btn btn-icon" data-action="ed-del" aria-label="Remove">${I.x}</button></div>`;
+  const edGroup = (l, g) => `<div class="eg"><div class="eghead"><input name="gname" value="${esc(g.name || "")}" placeholder="${esc(l.group)}" aria-label="${esc(l.group)}" dir="auto">
+    <button type="button" class="btn btn-icon" data-action="ed-del-group" aria-label="Remove">${I.trash}</button></div>
+    <div class="eis">${(g.items && g.items.length ? g.items : [{}]).map((i) => edIng(l, i)).join("")}</div>
+    <button type="button" class="btn" data-action="ed-add-ing">${I.plus}${esc(l.addIng)}</button></div>`;
+  const edStep = (l, st, i) => `<div class="es"><span class="n">${i + 1}</span><textarea name="step" rows="3" dir="auto" aria-label="${i + 1}"
+    data-timers="${esc((st.timers || []).join(","))}" data-orig="${esc(st.text || "")}">${esc(st.text || "")}</textarea>
+    <button type="button" class="btn btn-icon" data-action="ed-del" aria-label="Remove">${I.x}</button></div>`;
+  function editPage(r) {
+    const l = lab(r);
+    const box = (name, label, value) => `<label class="field"><span>${esc(label)}</span><input name="${name}" value="${esc(value || "")}" dir="auto" maxlength="120"></label>`;
+    return `<div class="wrap narrow"${dirOf(r)}>
+      <div class="bar"><a class="btn" href="#/r/${esc(r.code)}">${esc(l.cancel)}</a><span class="grow"></span>
+        ${r.edited ? `<button type="button" class="btn" data-action="ed-revert">${esc(l.revert)}</button>` : ""}
+        <button type="button" class="btn btn-accent" data-action="ed-save">${esc(l.save)}</button></div>
+      <form class="editor" data-form="edit" id="editor">
+        <label class="field"><span>${esc(l.title)}</span><input name="title" value="${esc(r.title)}" dir="auto" required maxlength="200"></label>
+        <label class="field"><span>${esc(l.summary)}</span><textarea name="summary" rows="2" dir="auto">${esc(r.summary || "")}</textarea></label>
+        <div class="edfacts">${box("servings", l.servings, r.servings)}${box("prep", l.prep, r.time && r.time.prep)}${box("cook", l.cook, r.time && r.time.cook)}${box("total", l.total, r.time && r.time.total)}${box("oven", l.oven, r.oven)}</div>
+        <h2>${esc(l.ing)}</h2><div id="ed-groups">${(r.ingredient_groups.length ? r.ingredient_groups : [{ name: "", items: [] }]).map((g) => edGroup(l, g)).join("")}</div>
+        <button type="button" class="btn" data-action="ed-add-group">${I.plus}${esc(l.addGroup)}</button>
+        <h2>${esc(l.steps)}</h2><div id="ed-steps">${(r.steps.length ? r.steps : [{}]).map((st, i) => edStep(l, st, i)).join("")}</div>
+        <button type="button" class="btn" data-action="ed-add-step">${I.plus}${esc(l.addStep)}</button>
+        <h2>${esc(l.tips)}</h2><textarea name="tips" rows="4" dir="auto">${esc((r.tips || []).join("\n"))}</textarea>
+        <h2>${esc(missLabel(r))}</h2><textarea name="missing" rows="3" dir="auto">${esc((r.missing || []).join("\n"))}</textarea>
+      </form></div>`;
+  }
+  function timersIn(text) {                           // "bake 20 to 25 minutes" → [20, 25], the same as Matkon's own reading
+    const out = [];
+    const re = /(\d+(?:[.,]\d+)?)(?:\s*(?:-|–|to|עד|או)\s*(\d+(?:[.,]\d+)?))?\s*(minutes?|mins?|דקות|דק׳|דקה|hours?|hrs?|שעות)/giu;
+    for (const m of String(text).matchAll(re)) {
+      const h = /^(h|שע)/i.test(m[3]) ? 60 : 1;
+      [m[1], m[2]].filter(Boolean).forEach((x) => { const v = Math.round(parseFloat(x.replace(",", ".")) * h); if (v > 0 && v <= 1440 && !out.includes(v)) out.push(v); });
+    }
+    return out.slice(0, 3);
+  }
+  function renumber() { document.querySelectorAll("#ed-steps .es .n").forEach((n, i) => { n.textContent = i + 1; }); }
+  async function saveEdit(r, revert) {
+    const f = document.getElementById("editor");
+    let body;
+    if (revert) {
+      if (!confirm(lab(r).revert + "?")) return;
+      body = { lang: r.lang, revert: true };
+    } else {
+      const val = (n) => (f.elements[n] ? f.elements[n].value.trim() : "");
+      const lines = (n) => val(n).split("\n").map((x) => x.trim()).filter(Boolean);
+      const groups = [...f.querySelectorAll(".eg")].map((g) => ({ name: g.querySelector("[name=gname]").value.trim(),
+        items: [...g.querySelectorAll(".ei")].map((e) => ({ amount: e.querySelector("[name=amount]").value.trim(), item: e.querySelector("[name=item]").value.trim(), note: e.querySelector("[name=note]").value.trim() })).filter((i) => i.item) }))
+        .filter((g) => g.items.length);
+      const steps = [...f.querySelectorAll("[name=step]")].map((t) => { const text = t.value.trim();
+        return { text, timers: text === t.dataset.orig ? (t.dataset.timers ? t.dataset.timers.split(",").map(Number).filter(Boolean) : []) : timersIn(text) }; }).filter((x) => x.text);
+      if (!val("title")) { f.elements.title.focus(); return; }
+      body = { lang: r.lang, recipe: { title: val("title"), summary: val("summary"), servings: val("servings"),
+        time: { prep: val("prep"), cook: val("cook"), total: val("total") }, oven: val("oven"), ingredient_groups: groups, steps, tips: lines("tips"), missing: lines("missing") } };
+    }
+    try {
+      const d = await post("api/r/" + encodeURIComponent(r.code) + "/edit", body);
+      Object.keys(FULL).forEach((k) => { if (k.startsWith(r.code + "|")) delete FULL[k]; });
+      FULL[key(r.code)] = d;
+      LIST = await getJSON("api/recipes");
+      location.hash = "#/r/" + encodeURIComponent(r.code);
+    } catch (e) { if (e instanceof SignedOut) signInPage(); else toast(e.message); }
+  }
+
+  /* ---------- the recipe's More: collections, a link to share, print, fixing it ---------- */
+  function moreSheet(r) {
+    const l = lab(r);
+    const items = [["coll", I.folder, l.collections], ["share-link", I.link, l.share], ["print", I.print, l.print]].concat(r.can_edit ? [["edit", I.edit, l.edit]] : []);
+    sheet(l.more, `<ul class="days more"${dirOf(r)}>${items.map(([a, i, n]) => `<li><button type="button" class="dayrow" data-more="${a}"><span class="mi">${i}${esc(n)}</span></button></li>`).join("")}</ul>`, (e, close) => {
+      const b = e.target.closest("[data-more]");
+      if (!b) return;
+      close();
+      const a = b.dataset.more;
+      if (a === "coll") collSheet(r.code);
+      else if (a === "share-link") shareSheet(r);
+      else if (a === "print") setTimeout(() => window.print(), 80);
+      else if (a === "edit") location.hash = "#/edit/" + encodeURIComponent(r.code);
+    });
+  }
+  function shareSheet(r) {
+    let url = r.share || null;
+    const body = () => (url ? `<div class="sharebox"><input class="conn" type="text" readonly value="${esc(url)}" aria-label="Link">
+        <div class="row">${navigator.share ? `<button type="button" class="btn btn-accent" data-sh="send">${I.share}Share</button>` : ""}<button type="button" class="btn" data-sh="copy">Copy</button>
+        <button type="button" class="btn" data-sh="stop">Stop sharing</button></div></div>`
+      : `<div class="sharebox"><button type="button" class="btn btn-accent btn-big" data-sh="make">${I.link}Make a link</button></div>`);
+    const el = sheet(lab(r).share, `<div class="shbody">${body()}</div>`, async (e) => {
+      const b = e.target.closest("[data-sh]");
+      if (!b) return;
+      const a = b.dataset.sh;
+      try {
+        if (a === "make") url = (await post("api/settings", { op: "share", code: r.code })).url;
+        else if (a === "stop") { await post("api/settings", { op: "unshare", code: r.code }); url = null; }
+        else if (a === "copy") { await copyText(url); toast("Copied"); return; }
+        else if (a === "send") { try { await navigator.share({ title: r.title, url }); } catch (x) { /* closed */ } return; }
+      } catch (err) { if (err instanceof SignedOut) return signInPage(); toast(err.message); return; }
+      Object.keys(FULL).forEach((k) => { if (k.startsWith(r.code + "|")) FULL[k].share = url; });
+      el.querySelector(".shbody").innerHTML = body();
+    });
+  }
+  function madeSheet(r) {                             // "I made it": the amounts used and a note, for the cooking log
+    const l = lab(r), f = factor(r.code);
+    sheet(l.madeIt, `<form data-form="made" class="stack madeform"${dirOf(r)} data-code="${esc(r.code)}">
+        ${hasIngs(r) ? `<div class="amounts"><span class="lbl">${esc(l.amounts)}</span><div class="chips" dir="ltr">${FACTORS.map(([x, n]) => `<button type="button" data-mf="${x}" aria-pressed="${x === f}">${n}</button>`).join("")}</div></div>` : ""}
+        <label class="field"><span>${esc(l.noteLbl)}</span><textarea name="note" rows="3" maxlength="500" dir="auto"></textarea></label>
+        <button class="btn btn-accent btn-big" type="submit">${I.done}${esc(l.madeIt)}</button></form>`,
+    (e) => { const b = e.target.closest("[data-mf]"); if (b) b.parentNode.querySelectorAll("[data-mf]").forEach((x) => x.setAttribute("aria-pressed", x === b)); });
+  }
+  function noteSheet(entry) {
+    const el = sheet("Note", `<form class="stack madeform" data-sheet="cook-note"><label class="field"><span>Note</span><textarea name="note" rows="3" maxlength="500" dir="auto">${esc(entry.note || "")}</textarea></label>
+      <button class="btn btn-accent" type="submit">Save</button></form>`, () => {});
+    el.addEventListener("submit", async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      await remember("cook-note", { id: entry.id, note: e.target.elements.note.value.trim() });
+      el.remove(); render(true);
+    });
+    const t = el.querySelector("textarea"); if (t) t.focus();
+  }
+
+  /* ---------- Ask about this recipe (Claude, with the recipe in front of it) ---------- */
+  const asks = {};
+  function askHTML(r, l) {
+    const t = asks[r.code] || [];
+    return `<section class="sec ask"><h2>${esc(l.ask)}</h2><div class="thread">${t.map((x) => `<p class="q" dir="auto">${esc(x.q)}</p><p class="a${x.a == null ? " wait" : x.bad ? " bad" : ""}" dir="auto">${esc(x.a == null ? l.asking : x.a)}</p>`).join("")}</div>
+      <form data-form="ask" class="addrow"><input name="q" type="text" placeholder="${esc(l.askPh)}" aria-label="${esc(l.ask)}" autocomplete="off" dir="auto" maxlength="1000" enterkeyhint="send">
+        <button class="btn btn-icon" type="submit" aria-label="${esc(l.ask)}">${I.send}</button></form></section>`;
+  }
+  function paintAsk(r) { const s = document.querySelector("section.ask"); if (s && r) s.outerHTML = askHTML(r, lab(r)); }
+  async function ask(r, q) {
+    const t = (asks[r.code] = asks[r.code] || []);
+    const history = t.filter((x) => x.a && !x.bad).slice(-6).map((x) => ({ q: x.q, a: x.a }));
+    const item = { q, a: null };
+    t.push(item);
+    paintAsk(r);
+    try { item.a = (await post("api/ask", { code: r.code, lang: r.lang, question: q, history })).answer; }
+    catch (e) { if (e instanceof SignedOut) return signInPage(); item.a = e.message; item.bad = true; }
+    if (cur(r.code) === r) paintAsk(r);
   }
 
   /* ---------- settings ---------- */
@@ -883,7 +1282,9 @@
         <button type="button" class="btn" data-action="signout">Sign out</button></section>
       <section class="sec set"><h2>Display</h2>
         <button type="button" class="switch" role="switch" aria-checked="${s.settings.nutrition}" data-action="nutrition"><span>Calories and protein</span><span class="track"><span class="knob"></span></span></button>
-        <button type="button" class="switch" role="switch" aria-checked="${!!s.settings.english}" data-action="english"><span>Hebrew recipes in English</span><span class="track"><span class="knob"></span></span></button></section>
+        <button type="button" class="switch" role="switch" aria-checked="${!!s.settings.english}" data-action="english"><span>Hebrew recipes in English</span><span class="track"><span class="knob"></span></span></button>
+        <h3>Units</h3><div class="chips units">${[["", "As written"], ["metric", "Metric"], ["us", "US"]].map(([u, n]) => `<button type="button" data-action="units" data-u="${u}" aria-pressed="${(s.settings.units || "") === u}">${n}</button>`).join("")}</div></section>
+      ${householdHTML(s)}
       <section class="sec set"><h2>Instagram</h2>
         <p class="status">${esc(status)}</p>
         <form data-form="collection" class="row">${field("value", "Collection", "", "text", 'autocomplete="off" spellcheck="false" autocapitalize="off"')}<button class="btn" type="submit">Save</button></form>
@@ -895,8 +1296,8 @@
         <div class="row">${ig.downloads.firefox ? `<a class="btn" href="api/ext/firefox">Firefox or Zen</a>` : ""}${ig.downloads.chrome ? `<a class="btn" href="api/ext/chrome" download>Chrome</a>` : ""}</div>
         <div class="row"><button type="button" class="btn" data-action="browser-key"${br ? ' data-connected="1"' : ""}>${br ? "New connection" : "Connect a browser"}</button>${br ? `<button type="button" class="btn" data-action="browser-forget">Disconnect</button>` : ""}</div>
         ${browserKey ? `<div class="invite-code"><span class="sub">Connection</span><input class="conn" type="text" readonly value="${esc(browserKey)}"><button type="button" class="btn" data-action="copy-key">Copy</button></div>` : ""}</section>
-      <section class="sec set"><h2>Add a reel</h2>
-        <form data-form="add" class="row">${field("url", "Reel link", "", "url")}<button class="btn" type="submit">Add</button></form></section>
+      <section class="sec set"><h2>Your recipes</h2>
+        <div class="row"><a class="btn" href="#/add">${I.plus}Add</a><a class="btn" href="api/export" download>${I.download}Download all</a></div></section>
       ${k ? `<section class="sec set"><h2>Kitchen</h2>
         <button type="button" class="switch" role="switch" aria-checked="${!k.paused}" data-action="pause"><span>Check Instagram</span><span class="track"><span class="knob"></span></span></button>
         <form data-form="kitchen" class="stack">
@@ -918,6 +1319,20 @@
       <p class="msg" id="msg" role="status"></p>
     </div>`;
   }
+  function householdHTML(s) {                         // one week and one shopping list for two or more accounts
+    const mine = (ME.memory.household || []);
+    const all = s.accounts || [];
+    const hs = s.households || [];
+    if (!mine.length && !(s.kitchen && all.length > 1)) return "";
+    const inOne = new Set(hs.flatMap((h) => h.members));
+    return `<section class="sec set"><h2>Week and list</h2>
+      ${mine.length ? `<div class="row"><span class="status">With ${esc(mine.map(nameOf).join(", "))}</span><button type="button" class="btn" data-action="hh-leave" data-aid="${esc(s.account.id)}">Stop sharing</button></div>` : ""}
+      ${s.kitchen ? `${hs.filter((h) => !h.members.includes(s.account.id)).map((h) => `<div class="row"><span class="status">${esc(h.members.map(nameOf).join(" · "))}</span>
+          ${h.members.map((m) => `<button type="button" class="btn" data-action="hh-leave" data-aid="${esc(m)}">${esc(nameOf(m))} ${I.x}</button>`).join("")}</div>`).join("")}
+        ${all.filter((a) => !inOne.has(a.id)).length >= 2 ? `<form data-form="household" class="stack"><h3>Share between</h3><div class="checks">${all.filter((a) => !inOne.has(a.id)).map((a) =>
+          `<label class="check"><input type="checkbox" name="m" value="${esc(a.id)}"> ${esc(a.name)}</label>`).join("")}</div><button class="btn" type="submit">Share the week and list</button></form>` : ""}` : ""}
+      </section>`;
+  }
   function say(text, bad) {
     const m = document.getElementById("msg");
     if (m) { m.textContent = text; m.classList.toggle("bad", !!bad); clearTimeout(say.t); say.t = setTimeout(() => { m.textContent = ""; }, bad ? 6000 : 2500); }
@@ -938,7 +1353,7 @@
     const text = sessionStorage.getItem("mk.share");
     if (text != null) {
       try {
-        shareResult = await post("api/settings", { op: "add-reel", url: text });
+        shareResult = await addLink(text);
         LIST = await getJSON("api/recipes");
       } catch (e) {
         if (e instanceof SignedOut) throw e;          // kept for after signing in
@@ -948,7 +1363,7 @@
     }
     const d = shareResult;
     const r = d.code ? byCode(d.code) : null;
-    const head = d.error ? "Not a reel link" : r && d.done ? "Already in Matkon" : d.new ? "Added" : "Already on the way";
+    const head = d.error ? "Not a recipe link" : r && d.done ? "Already in Matkon" : d.new ? "Added" : "Already on the way";
     return `<div class="wrap narrow">${topBar()}
       <section class="shared"><h2>${esc(head)}</h2>${r && d.done ? `<ul class="hlist">${rowHTML(r)}</ul>` : ""}
         <a class="btn" href="#/">Done</a></section></div>`;
@@ -963,17 +1378,20 @@
     const [page, code, n] = route();
     const key = location.hash;
     const same = key === lastRoute;
-    if (!same) { stopSpeaking(); if (!keepScroll) playing = null; if (page !== "settings") browserKey = null; if (toastEl) toastEl.hidden = true; }
+    if (!same) { stopSpeaking(); if (!keepScroll) playing = null; if (page !== "settings") browserKey = null; if (page !== "add") addResult = null; if (toastEl) toastEl.hidden = true; }
     if (!same && page && lastRoute && !lastRoute.replace(/^#\/?/, "")) sessionStorage.setItem("mk.homeY", String(window.scrollY));
     let html, r = null;
     if (page === "join") { signInPage("", "join", { email: code || "", code: n || "" }); lastRoute = key; return; }
     if (page === "shared" && !shareResult && sessionStorage.getItem("mk.share") == null) { location.replace("#/"); return; }
     try {
       await loadAll();
-      if (page === "r" || page === "cook") r = await loadOne(code);
+      if (page === "r" || page === "cook" || page === "edit") r = await loadOne(code);
       if (!page && !SUGGEST) getJSON("api/suggest").then((d) => { SUGGEST = d.suggest; const el = document.getElementById("next"); if (el) el.innerHTML = nextHTML(); }).catch(() => {});
       if (page === "r") html = recipePage(r);
       else if (page === "cook") html = cookPage(r, n === "done" ? "done" : parseInt(n, 10) || 1);
+      else if (page === "edit") html = r.can_edit ? editPage(r) : recipePage(r);
+      else if (page === "pantry") html = pantryPage();
+      else if (page === "add") html = addPage();
       else if (page === "week") html = weekPage();
       else if (page === "list") html = listPage();
       else if (page === "history") html = await historyPage(code);
@@ -987,7 +1405,7 @@
     }
     const y = window.scrollY;
     app.innerHTML = html;
-    const titles = { week: "Week", list: "List", history: "History", settings: "Settings" };
+    const titles = { week: "Week", list: "List", history: "History", settings: "Settings", pantry: "What can I make?", add: "Add" };
     document.title = r ? `${r.title} · Matkon` : titles[page] ? `${titles[page]} · Matkon` : "Matkon";
     setWake(page === "cook" || (page === "r" && store.get("awake", true)));
     if (!same && page === "r") remember("view", { code });
@@ -1026,7 +1444,37 @@
     const r = cur(code);
     if (act === "lang") { langChoice[code] = b.dataset.to; render(true); return; }
     if (act === "filter") openFilter();
-    else if (act === "kind") { kind = b.dataset.kind; document.querySelector(".kinds").innerHTML = kindsHTML(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); }
+    else if (act === "more" && r) moreSheet(r);
+    else if (act === "print") window.print();
+    else if (act === "surprise") surprise();
+    else if (act === "coll-rename") {
+      const c = collOf(b.dataset.id);
+      const name = c && (prompt("Name", c.name) || "").trim();
+      if (name) { change("coll-rename", { id: c.id, name }, (m) => { const x = m.collections.find((y) => y.id === c.id); if (x) x.name = name; }); render(true); }
+    }
+    else if (act === "coll-delete") {
+      const c = collOf(b.dataset.id);
+      if (c && confirm(`Delete "${c.name}"?`)) { kind = "All"; change("coll-delete", { id: c.id }, (m) => { m.collections = m.collections.filter((y) => y.id !== c.id); }); render(true); }
+    }
+    else if (act === "units") { const u = b.dataset.u; ME.memory.settings.units = u; await remember("setting", { key: "units", value: u }); render(true); }
+    else if (act === "again" && r) { const f = +b.dataset.f; if (f === 1) delete factors[code]; else factors[code] = f; location.hash = `#/cook/${code}/1`; }
+    else if (act === "pantry-add") pantrySet(pantry().concat([b.dataset.p]));
+    else if (act === "pantry-del") pantrySet(pantry().filter((x) => x !== b.dataset.p));
+    else if (act === "aisle" && window.MatkonAisles) aisleSheet(b.dataset.key, b.dataset.item);
+    else if (act === "cal") { calOff = Math.min(0, calOff + +b.dataset.d); render(true); }
+    else if (act === "cook-note") {
+      const e2 = (M().cooked || []).find((x) => x.id === b.dataset.id);
+      if (e2) noteSheet(e2);
+    }
+    else if (act === "hh-leave") { if (confirm("Stop sharing the week and list?") && await setting("household-leave", { aid: b.dataset.aid }, "Done")) { ME = null; render(true); } }
+    else if (act === "ed-save" && r) saveEdit(r, false);
+    else if (act === "ed-revert" && r) saveEdit(r, true);
+    else if (act === "ed-add-ing" && r) b.previousElementSibling.insertAdjacentHTML("beforeend", edIng(lab(r), {}));
+    else if (act === "ed-add-group" && r) document.getElementById("ed-groups").insertAdjacentHTML("beforeend", edGroup(lab(r), { name: "", items: [] }));
+    else if (act === "ed-add-step" && r) { const box = document.getElementById("ed-steps"); box.insertAdjacentHTML("beforeend", edStep(lab(r), {}, box.children.length)); box.lastElementChild.querySelector("textarea").focus(); }
+    else if (act === "ed-del") { const x = b.closest(".ei, .es"); if (x) { x.remove(); renumber(); } }
+    else if (act === "ed-del-group") { const x = b.closest(".eg"); if (x) x.remove(); }
+    else if (act === "kind") { kind = b.dataset.kind; document.querySelector(".kinds").innerHTML = kindsHTML(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); document.getElementById("collbar").innerHTML = collBarHTML(); }
     else if (act === "clear") { query = ""; const q = document.getElementById("q"); q.value = ""; q.focus(); document.getElementById("grid").innerHTML = gridHTML(); document.getElementById("next").innerHTML = nextHTML(); b.hidden = true; }
     else if (act === "play") { playing = code; render(true); }
     else if (act === "factor" && r) {
@@ -1066,16 +1514,16 @@
       document.querySelectorAll(".rating").forEach((g) => { g.outerHTML = ratingHTML(code); });
       remember("rate", { code, rating: v });
     }
-    else if (act === "made") { await remember("cooked", { code }); render(true); }
-    else if (act === "finish") { await remember("cooked", { code }); location.hash = `#/cook/${code}/done`; }
+    else if (act === "made" && r) madeSheet(r);
+    else if (act === "finish") { await remember("cooked", { code, id: newId(), factor: factor(code) }); location.hash = `#/cook/${code}/done`; }
     else if (act === "uncook") { await remember("uncook", { id: b.dataset.id }); render(true); }
     else if (act === "read" && r) {
       const l = lab(r);
-      const ings = r.ingredient_groups.flatMap((g) => g.items.map((i) => [Amt.scale(i.amount, factor(code)), i.item].filter(Boolean).join(" ")));
-      speak([r.title + ".", l.ing + ".", ...ings, l.steps + ".", ...r.steps.map((s) => s.text)], "r:" + code, r.lang, () => render(true));
+      const ings = r.ingredient_groups.flatMap((g) => g.items.map((i) => [UA(Amt.scale(i.amount, factor(code)), r.lang), i.item].filter(Boolean).join(" ")));
+      speak([r.title + ".", l.ing + ".", ...ings, l.steps + ".", ...r.steps.map((s) => UT(s.text, r.lang))], "r:" + code, r.lang, () => render(true));
       render(true);
     }
-    else if (act === "read-step" && r) { const s = r.steps[+b.dataset.i]; if (s) { speaking = null; speak([s.text], "s:" + code, r.lang); } }
+    else if (act === "read-step" && r) { const s = r.steps[+b.dataset.i]; if (s) { speaking = null; speak([UT(s.text, r.lang)], "s:" + code, r.lang); } }
     else if (act === "awake") { const on = !store.get("awake", true); store.set("awake", on); setWake(on); b.setAttribute("aria-checked", on); }
     else if (act === "timer" && r) startTimer(+b.dataset.min, code, r.title);
     else if (act === "timer-stop") stopTimer();
@@ -1145,6 +1593,38 @@
       } catch (err) { if (err instanceof SignedOut) signInPage(); else say(err.message, true); }
       return;
     }
+    if (kindOf === "ask") {
+      const r = cur(route()[1]), q = (v.q || "").trim();
+      if (r && q) ask(r, q);
+      return;
+    }
+    if (kindOf === "made") {
+      const code = f.dataset.code, pick = f.querySelector("[data-mf][aria-pressed=true]");
+      await remember("cooked", { code, id: newId(), factor: pick ? +pick.dataset.mf : 1, note: (v.note || "").trim() });
+      const sh = f.closest(".sheet"); if (sh) sh.remove();
+      render(true);
+      return;
+    }
+    if (kindOf === "pantry-add") {
+      const item = (v.item || "").trim();
+      if (item && !pantry().some((x) => x.toLowerCase() === item.toLowerCase())) pantrySet(pantry().concat([item]));
+      f.reset();
+      const i = f.querySelector("input"); if (i) i.focus();
+      return;
+    }
+    if (kindOf === "add-link") {
+      say("Adding…");
+      try { addResult = await addLink(v.url); LIST = await getJSON("api/recipes"); }
+      catch (err) { if (err instanceof SignedOut) return signInPage(); addResult = { error: err.message }; }
+      render(true);
+      return;
+    }
+    if (kindOf === "household") {
+      const members = new FormData(f).getAll("m");
+      if (members.length < 2) return say("Pick two or more", true);
+      if (await setting("household", { members }, "Shared")) { ME = null; render(true); }
+      return;
+    }
     if (kindOf === "shop-add") {
       const item = (v.item || "").trim();
       if (item) {
@@ -1161,11 +1641,48 @@
       // the browser it's pasted in is the one the server dresses as: its User-Agent and languages go along
       if (await setting("signin", { cookies: v.cookies, ua: navigator.userAgent, langs: (navigator.languages || [navigator.language]).join(",") }, "Saved")) { ME = null; render(true); }
     }
-    else if (kindOf === "add") { if (await setting("add-reel", { url: v.url }, "Added")) f.reset(); }
     else if (kindOf === "kitchen") setting("kitchen", v, "Saved");
     else if (kindOf === "account") { if (await setting("account-add", v, "Account added")) { ME = null; render(true); } }
     else if (kindOf === "reset") { if (await setting("account-password", { id: f.dataset.id, password: v.password }, "Password set")) f.reset(); }
   });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches("input[data-photos]")) addPhotos(e.target.files);
+  });
+
+  /* ---------- dragging a planned recipe to another day (mouse, finger or pen) ---------- */
+  let drag = null;
+  document.addEventListener("pointerdown", (e) => {
+    const g = e.target.closest("[data-drag]");
+    if (!g) return;
+    e.preventDefault();
+    const li = g.closest("li"), rect = li.getBoundingClientRect();
+    const ghost = li.cloneNode(true);
+    ghost.className = "ghost";
+    Object.assign(ghost.style, { width: rect.width + "px", left: rect.left + "px", top: rect.top + "px" });
+    document.body.appendChild(ghost);
+    li.classList.add("dragging");
+    drag = { id: g.dataset.drag, li, ghost, dy: e.clientY - rect.top, over: null, from: g.closest("[data-day]").dataset.day };
+    try { g.setPointerCapture(e.pointerId); } catch (x) { /* fine without */ }
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    drag.ghost.style.top = e.clientY - drag.dy + "px";
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const d = el && el.closest("[data-day]");
+    if (drag.over !== d) { if (drag.over) drag.over.classList.remove("drop"); drag.over = d; if (d) d.classList.add("drop"); }
+    if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const { id, from, over, ghost, li } = drag;
+    drag = null;
+    ghost.remove(); li.classList.remove("dragging");
+    if (over) over.classList.remove("drop");
+    if (over && over.dataset.day !== from) { const day = over.dataset.day; change("plan-move", { id, day }, (m) => m.plan.forEach((x) => { if (x.id === id) x.day = day; })); }
+  };
+  document.addEventListener("pointerup", endDrag);
+  document.addEventListener("pointercancel", endDrag);
+
   document.addEventListener("keydown", (e) => {
     if (e.target.closest("input, textarea, .sheet")) return;
     const [page, code, n] = route();

@@ -13,7 +13,7 @@ import shutil
 import time
 from pathlib import Path
 
-from . import config
+from . import config, edits, sources, store
 
 SKIP_DIRS = {".obsidian", ".trash", ".claude", ".git", "node_modules"}
 HEAD = {
@@ -67,14 +67,16 @@ def render(r, post, photo_name, my_notes=""):
     h = HEAD[r["lang"]]
     st = config.settings()
     code = post["code"]
-    who = "@" + post["user"] if post.get("user") else ""
+    kind = store.source(post)                    # a reel, a recipe page (web) or photos of a recipe
+    who = sources.author(post)
     fm = ["---", "categories:", '  - "[[Recipes]]"', f"cuisine: {_yaml(r['cuisine']) if r['cuisine'] else ''}".rstrip(),
           "type:", f"  - {_yaml(r['kind'].lower())}"]
     fm += [f"  - {_yaml(t)}" for t in r["tags"][:3] if t != r["kind"].lower()]
     fm += ["ingredients:"] + [f"  - {_yaml(x)}" for x in r["main_ingredients"]]
-    fm += ["author:", f"  - {_yaml(who)}" if who else "  -", f"url: {post['url']}",
+    fm += ["author:", f"  - {_yaml(who)}" if who else "  -", f"url: {post.get('url') or ''}".rstrip(),
            f'image: "[[{photo_name}]]"' if photo_name else "image:", "rating:", "cooked: false",
-           "tags:", "  - recipes", "  - instagram-reels", f"matkon: {code}", "---"] + ([st["note_tag"]] if st.get("note_tag") else [])
+           "tags:", "  - recipes"] + (["  - instagram-reels"] if kind == "reel" else []) + [
+           f"matkon: {code}", "---"] + ([st["note_tag"]] if st.get("note_tag") else [])
     body = [f"# {r['title']}", ""]
     if r["summary"]:
         body += [r["summary"], ""]
@@ -111,8 +113,9 @@ def render(r, post, photo_name, my_notes=""):
             lines.append(f"- {n['other']}")
         body += [f"## {h['nut']}" + (f" ({n['per']})" if n.get("per") else ""), ""] + lines + [""]
     if r["missing"]:
-        body += [f"## {h['miss']}", ""] + [f"- {m}" for m in r["missing"]] + [""]
-    src = [f"[{who or 'Instagram'} {h['on']}]({post['url']})"]
+        body += [f"## {sources.missing_label(post, r['lang'])}", ""] + [f"- {m}" for m in r["missing"]] + [""]
+    src = ([f"[{who or 'Instagram'} {h['on']}]({post['url']})"] if kind == "reel" else
+           [f"[{who or post['url']}]({post['url']})"] if post.get("url") else [])
     if r.get("link"):
         src.append(f"[{h['page']}]({r['link']})")
     src.append(f"[{h['open']}]({st['app_url']}/#/r/{code})")
@@ -164,7 +167,8 @@ def write(folder, r, post, notes, my_notes=None):
         base = _safe(r["title"])
         path = ndir / f"{base}.md"
         if path.exists():
-            path = ndir / f"{base} (@{post.get('user') or code}).md"
+            by = ("@" + post["user"] if store.source(post) == "reel" else post["user"]) if post.get("user") else code
+            path = ndir / f"{base} ({by}).md"
         if path.exists():
             path = ndir / f"{base} ({code}).md"
     tmp = path.with_name(path.name + ".matkon-tmp")
@@ -207,7 +211,7 @@ def remember(code):
     folder = config.REELS / code
     try:
         record = json.loads((folder / "vault-note.json").read_text())
-        r = json.loads((folder / "recipe.json").read_text())
+        r = edits.effective(folder, json.loads((folder / "recipe.json").read_text()))     # with its edit, if it has one
         post = json.loads((folder / "post.json").read_text())
     except (OSError, ValueError):
         return None

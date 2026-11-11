@@ -10,10 +10,11 @@ These pages are how Matkon works, written down. It takes the cooking reels I sav
 - [Why I made it](../README.md#why-i-made-it): the story, on the front page
 
 ### Using it
-- [Recipes](recipes.md): the home page, search, a recipe, the reel, and Hebrew or English
+- [Recipes](recipes.md): the home page, search, collections, a recipe, Hebrew or English, units, fixing a recipe, asking about it, What can I make?, sharing and printing
+- [Adding recipes](adding-recipes.md): a reel, any recipe page, or photos of a cookbook page or a card
 - [Cooking](cooking.md): one step at a time, with the amounts, timers and read-aloud
-- [The week and the shopping list](week-and-list.md): planning what to make, and a list that adds up the same thing from different recipes
-- [Memory and history](memory-and-history.md): saving, "I made it", ratings, notes, Up next, and History
+- [The week and the shopping list](week-and-list.md): planning what to make (drag a recipe to another day), a list that adds up the same thing from different recipes and sorts itself by aisle, and sharing both with a household
+- [Memory and history](memory-and-history.md): saving, "I made it" with the amounts and a note, ratings, notes, Up next, and the cooking calendar
 - [The Android app](android-app.md): Matkon on a phone or a tablet, with cook mode, alarm timers, the week and the shopping list
 - [The browser extension](browser-extension.md): how your saved reels get from Instagram into Matkon, and setting it up
 - [Instagram sign-in on the server](instagram-sign-in.md): the other way, with no browser open, and what it costs
